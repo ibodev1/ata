@@ -15,6 +15,28 @@ const bilinmeyen: Tip = { tür: "bilinmeyen" };
 const sayı: Tip = { tür: "sayı" };
 const mantık: Tip = { tür: "mantık" };
 
+type Daraltmalar = ReadonlyMap<Sembol, Tip>;
+interface KoşulBilgisi {
+  readonly tip: Tip;
+  readonly doğru: Daraltmalar;
+  readonly yanlış: Daraltmalar;
+}
+
+function ortakDaraltmalar(sol: Daraltmalar, sağ: Daraltmalar): Map<Sembol, Tip> {
+  const ortak = new Map<Sembol, Tip>();
+  for (const [sembol, tip] of sol) {
+    const diğer = sağ.get(sembol);
+    if (diğer && tipEşit(tip, diğer)) ortak.set(sembol, tip);
+  }
+  return ortak;
+}
+
+function daraltmaEkle(hedef: Map<Sembol, Tip>, sembol: Sembol, tip: Tip): void {
+  const mevcut = hedef.get(sembol);
+  if (mevcut && !tipEşit(mevcut, tip)) hedef.delete(sembol);
+  else hedef.set(sembol, tip);
+}
+
 export interface TipDenetlemeSonucu {
   readonly tanılar: readonly Tanı[];
   readonly ifadeTipleri: ReadonlyMap<İfade, Tip>;
@@ -33,6 +55,118 @@ export function tipleriDenetle(
   const sembolTipleri = new Map<Sembol, Tip>();
   const işlevİmzaları = new Map<Sembol, İşlevİmzası>();
   const yapıAlanları = new Map<string, ReadonlyMap<string, Tip>>();
+  const globalDeğişkenler = new Set<Sembol>();
+  for (const bildirim of program.bildirimler) {
+    if (bildirim.tür === "değişken") {
+      const sembol = isimler.bildirimSembolleri.get(bildirim);
+      if (sembol) globalDeğişkenler.add(sembol);
+    }
+  }
+  let akış = new Map<Sembol, Tip>();
+  let bozulanlar = new Set<Sembol>();
+
+  function akışta<T>(daraltmalar: Daraltmalar, denetle: () => T) {
+    const önceki = akış;
+    const öncekiBozulanlar = bozulanlar;
+    akış = new Map(daraltmalar);
+    bozulanlar = new Set();
+    try {
+      const sonuç = denetle();
+      return { sonuç, bozulanlar };
+    } finally {
+      akış = önceki;
+      bozulanlar = öncekiBozulanlar;
+    }
+  }
+
+  function daraltmayıBoz(sembol: Sembol): void {
+    akış.delete(sembol);
+    bozulanlar.add(sembol);
+  }
+
+  function bozulmalarıUygula(semboller: ReadonlySet<Sembol>): void {
+    for (const sembol of semboller) daraltmayıBoz(sembol);
+  }
+
+  function globalDaraltmalarıBoz(): void {
+    for (const sembol of globalDeğişkenler) {
+      if (sembolTipleri.get(sembol)?.tür === "isteğe-bağlı") daraltmayıBoz(sembol);
+    }
+  }
+
+  // Döngüde yazılabilen bağlar ilk yinelemeden önce temel tipe döner.
+  // Böylece tek gövde denetimi sonraki yinelemeler için de güvenlidir.
+  function döngüYazmalarınıBoz(düğüm: Bildirim | İfade): void {
+    switch (düğüm.tür) {
+      case "atama": {
+        const sembol = isimler.bağlar.get(düğüm);
+        if (sembol?.tür === "değer" && sembol.değiştirilebilir) daraltmayıBoz(sembol);
+        döngüYazmalarınıBoz(düğüm.değer);
+        break;
+      }
+      case "çağrı":
+        if (isimler.bağlar.get(düğüm.çağrılan)?.tür === "işlev") globalDaraltmalarıBoz();
+        döngüYazmalarınıBoz(düğüm.çağrılan);
+        düğüm.argümanlar.forEach(döngüYazmalarınıBoz);
+        break;
+      case "blok":
+        düğüm.bildirimler.forEach(döngüYazmalarınıBoz);
+        break;
+      case "koşul":
+        döngüYazmalarınıBoz(düğüm.koşul);
+        döngüYazmalarınıBoz(düğüm.doğruysa);
+        if (düğüm.değilse) döngüYazmalarınıBoz(düğüm.değilse);
+        break;
+      case "iken":
+        döngüYazmalarınıBoz(düğüm.koşul);
+        döngüYazmalarınıBoz(düğüm.blok);
+        break;
+      case "liste-döngüsü":
+        döngüYazmalarınıBoz(düğüm.koleksiyon);
+        döngüYazmalarınıBoz(düğüm.blok);
+        break;
+      case "sabit":
+      case "değişken":
+        döngüYazmalarınıBoz(düğüm.başlangıç);
+        break;
+      case "yazdır":
+      case "ifade-bildirimi":
+      case "tekli":
+        döngüYazmalarınıBoz(düğüm.ifade);
+        break;
+      case "döndür":
+        if (düğüm.ifade) döngüYazmalarınıBoz(düğüm.ifade);
+        break;
+      case "ikili":
+        döngüYazmalarınıBoz(düğüm.sol);
+        döngüYazmalarınıBoz(düğüm.sağ);
+        break;
+      case "liste":
+        düğüm.elemanlar.forEach(döngüYazmalarınıBoz);
+        break;
+      case "yazı":
+        for (const parça of düğüm.parçalar)
+          if (parça.tür === "ifade") döngüYazmalarınıBoz(parça.ifade);
+        break;
+      case "yapı-oluşturma":
+        for (const alan of düğüm.alanlar) döngüYazmalarınıBoz(alan.değer);
+        break;
+      case "alan-erişim":
+        döngüYazmalarınıBoz(düğüm.hedef);
+        break;
+      case "indeks":
+        döngüYazmalarınıBoz(düğüm.hedef);
+        döngüYazmalarınıBoz(düğüm.indeks);
+        break;
+      case "işlev":
+      case "yapı":
+      case "tanımlayıcı":
+      case "sayı":
+      case "mantık":
+      case "yok":
+        break;
+    }
+  }
 
   function hata(kod: Tanı["kod"], mesaj: string, aralık: KaynakAralığı): void {
     tanılar.push({ kod, seviye: "hata", mesaj, aralık, yol });
@@ -110,7 +244,10 @@ export function tipleriDenetle(
   }
 
   function ifadeDenetle(ifade: İfade, beklenen?: Tip): Tip {
-    const tip = ifadeTipi(ifade, beklenen);
+    const mantıksal =
+      (ifade.tür === "ikili" && (ifade.işleç === "ve" || ifade.işleç === "veya")) ||
+      (ifade.tür === "tekli" && ifade.işleç === "değil");
+    const tip = mantıksal ? koşuluÇözümle(ifade).tip : ifadeTipi(ifade, beklenen);
     ifadeTipleri.set(ifade, tip);
     return tip;
   }
@@ -201,7 +338,7 @@ export function tipleriDenetle(
           );
           return bilinmeyen;
         }
-        return sembol ? (sembolTipleri.get(sembol) ?? bilinmeyen) : bilinmeyen;
+        return sembol ? (akış.get(sembol) ?? sembolTipleri.get(sembol) ?? bilinmeyen) : bilinmeyen;
       }
       case "tekli": {
         const tip = ifadeDenetle(ifade.ifade);
@@ -215,13 +352,18 @@ export function tipleriDenetle(
         );
         return bilinmeyen;
       }
-      case "ikili":
-        return ikiliTip(
-          ifade.işleç,
-          ifadeDenetle(ifade.sol),
-          ifadeDenetle(ifade.sağ),
-          ifade.aralık,
-        );
+      case "ikili": {
+        let sol = ifadeDenetle(ifade.sol);
+        let sağ = ifadeDenetle(ifade.sağ);
+        // Önceden daraltılmış optional adın yeniden yok testi, temel tipe göre geçerlidir.
+        if (ifade.işleç === "==" || ifade.işleç === "!=") {
+          if (ifade.sol.tür === "tanımlayıcı" && ifade.sağ.tür === "yok")
+            sol = karşılaştırmaTipi(ifade.sol, sol);
+          if (ifade.sağ.tür === "tanımlayıcı" && ifade.sol.tür === "yok")
+            sağ = karşılaştırmaTipi(ifade.sağ, sağ);
+        }
+        return ikiliTip(ifade.işleç, sol, sağ, ifade.aralık);
+      }
       case "liste": {
         const hedef = beklenen?.tür === "isteğe-bağlı" ? beklenen.temel : beklenen;
         const elemanHedefi = hedef?.tür === "liste" ? hedef.eleman : undefined;
@@ -258,6 +400,7 @@ export function tipleriDenetle(
           if (işleç === "+" || işleç === "-" || işleç === "*" || işleç === "/" || işleç === "%")
             uyumDenetle(ikiliTip(işleç, hedef, sağ, ifade.aralık), hedef, ifade.aralık);
         }
+        if (sembol?.tür === "değer" && sembol.değiştirilebilir) daraltmayıBoz(sembol);
         return hedef;
       }
       case "çağrı": {
@@ -313,15 +456,78 @@ export function tipleriDenetle(
           const verilen = ifadeDenetle(argüman, hedef);
           if (hedef) uyumDenetle(verilen, hedef, argüman.aralık, "ATA4005");
         });
+        globalDaraltmalarıBoz();
         return imza.dönüş;
       }
     }
   }
 
-  function koşulDenetle(ifade: İfade): void {
+  function karşılaştırmaTipi(ifade: İfade, akışTipi: Tip): Tip {
+    const sembol = isimler.bağlar.get(ifade);
+    const temel = sembol ? sembolTipleri.get(sembol) : undefined;
+    return temel?.tür === "isteğe-bağlı" ? temel : akışTipi;
+  }
+
+  function koşuluÇözümle(ifade: İfade): KoşulBilgisi {
+    if (ifade.tür === "tekli" && ifade.işleç === "değil") {
+      const iç = koşuluÇözümle(ifade.ifade);
+      const tip = iç.tip.tür === "mantık" ? mantık : bilinmeyen;
+      if (iç.tip.tür !== "mantık" && iç.tip.tür !== "bilinmeyen")
+        hata(
+          "ATA4011",
+          `'değil' işleci 'mantık' gerektirir; '${tipiGöster(iç.tip)}' verildi.`,
+          ifade.aralık,
+        );
+      ifadeTipleri.set(ifade, tip);
+      return tip.tür === "mantık"
+        ? { tip, doğru: iç.yanlış, yanlış: iç.doğru }
+        : { tip, doğru: new Map(akış), yanlış: new Map(akış) };
+    }
+    if (ifade.tür === "ikili" && (ifade.işleç === "ve" || ifade.işleç === "veya")) {
+      const önceki = new Map(akış);
+      const sol = koşuluÇözümle(ifade.sol);
+      const ve = ifade.işleç === "ve";
+      const sağ = akışta(ve ? sol.doğru : sol.yanlış, () => koşuluÇözümle(ifade.sağ));
+      bozulmalarıUygula(sağ.bozulanlar);
+      const tip = ikiliTip(ifade.işleç, sol.tip, sağ.sonuç.tip, ifade.aralık);
+      const doğru = ve ? sağ.sonuç.doğru : ortakDaraltmalar(sol.doğru, sağ.sonuç.doğru);
+      const yanlış = ve ? ortakDaraltmalar(sol.yanlış, sağ.sonuç.yanlış) : sağ.sonuç.yanlış;
+      akış = ortakDaraltmalar(önceki, ortakDaraltmalar(doğru, yanlış));
+      ifadeTipleri.set(ifade, tip);
+      return tip.tür === "mantık"
+        ? { tip, doğru, yanlış }
+        : { tip, doğru: new Map(akış), yanlış: new Map(akış) };
+    }
     const tip = ifadeDenetle(ifade);
+    const doğru = new Map(akış);
+    const yanlış = new Map(akış);
+    if (
+      tip.tür === "mantık" &&
+      ifade.tür === "ikili" &&
+      (ifade.işleç === "==" || ifade.işleç === "!=")
+    ) {
+      const hedef =
+        ifade.sol.tür === "tanımlayıcı" && ifade.sağ.tür === "yok"
+          ? ifade.sol
+          : ifade.sağ.tür === "tanımlayıcı" && ifade.sol.tür === "yok"
+            ? ifade.sağ
+            : undefined;
+      const sembol = hedef ? isimler.bağlar.get(hedef) : undefined;
+      const temel = sembol ? sembolTipleri.get(sembol) : undefined;
+      if (sembol && temel?.tür === "isteğe-bağlı") {
+        daraltmaEkle(doğru, sembol, ifade.işleç === "!=" ? temel.temel : { tür: "yok" });
+        daraltmaEkle(yanlış, sembol, ifade.işleç === "!=" ? { tür: "yok" } : temel.temel);
+      }
+    }
+    return { tip, doğru, yanlış };
+  }
+
+  function koşulDenetle(ifade: İfade): KoşulBilgisi {
+    const bilgi = koşuluÇözümle(ifade);
+    const tip = bilgi.tip;
     if (tip.tür !== "mantık" && tip.tür !== "bilinmeyen")
       hata("ATA4002", `Koşul 'mantık' olmalıdır; '${tipiGöster(tip)}' verildi.`, ifade.aralık);
+    return bilgi;
   }
 
   function blokDenetle(blok: Blok, dönüş: Tip | null): boolean {
@@ -361,7 +567,7 @@ export function tipleriDenetle(
         bildirim.parametreler.forEach((parametre, sıra) =>
           sembolTipleri.set(isimler.bildirimSembolleri.get(parametre)!, imza.parametreler[sıra]!),
         );
-        const döner = blokDenetle(bildirim.blok, imza.dönüş);
+        const döner = akışta(new Map(), () => blokDenetle(bildirim.blok, imza.dönüş)).sonuç;
         if (imza.dönüş.tür !== "hiç" && imza.dönüş.tür !== "bilinmeyen" && !döner)
           hata(
             "ATA4007",
@@ -370,18 +576,28 @@ export function tipleriDenetle(
           );
         break;
       }
-      case "blok":
-        return blokDenetle(bildirim, dönüş);
-      case "koşul": {
-        koşulDenetle(bildirim.koşul);
-        const doğru = blokDenetle(bildirim.doğruysa, dönüş);
-        const yanlış = bildirim.değilse ? bildirimDenetle(bildirim.değilse, dönüş) : false;
-        return doğru && yanlış;
+      case "blok": {
+        const blok = akışta(akış, () => blokDenetle(bildirim, dönüş));
+        bozulmalarıUygula(blok.bozulanlar);
+        return blok.sonuç;
       }
-      case "iken":
-        koşulDenetle(bildirim.koşul);
-        blokDenetle(bildirim.blok, dönüş);
+      case "koşul": {
+        const bilgi = koşulDenetle(bildirim.koşul);
+        const doğru = akışta(bilgi.doğru, () => blokDenetle(bildirim.doğruysa, dönüş));
+        const yanlış = akışta(bilgi.yanlış, () =>
+          bildirim.değilse ? bildirimDenetle(bildirim.değilse, dönüş) : false,
+        );
+        bozulmalarıUygula(doğru.bozulanlar);
+        bozulmalarıUygula(yanlış.bozulanlar);
+        return doğru.sonuç && yanlış.sonuç;
+      }
+      case "iken": {
+        döngüYazmalarınıBoz(bildirim);
+        const bilgi = koşulDenetle(bildirim.koşul);
+        const gövde = akışta(bilgi.doğru, () => blokDenetle(bildirim.blok, dönüş));
+        bozulmalarıUygula(gövde.bozulanlar);
         break;
+      }
       case "liste-döngüsü": {
         const liste = ifadeDenetle(bildirim.koleksiyon);
         if (liste.tür !== "liste" && liste.tür !== "bilinmeyen")
@@ -394,7 +610,9 @@ export function tipleriDenetle(
           isimler.bildirimSembolleri.get(bildirim)!,
           liste.tür === "liste" ? liste.eleman : bilinmeyen,
         );
-        blokDenetle(bildirim.blok, dönüş);
+        döngüYazmalarınıBoz(bildirim.blok);
+        const gövde = akışta(akış, () => blokDenetle(bildirim.blok, dönüş));
+        bozulmalarıUygula(gövde.bozulanlar);
         break;
       }
       case "yazdır": {

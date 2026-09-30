@@ -14,7 +14,7 @@ function komutÇalıştır(...argümanlar: string[]) {
 }
 
 test("CLI sürümü gösterir", () => {
-  expect(komutÇalıştır("sürüm")).toEqual({ kod: 0, çıktı: "Ata Dil 0.1.0-dev.6\n", hata: "" });
+  expect(komutÇalıştır("sürüm")).toEqual({ kod: 0, çıktı: "Ata Dil 0.1.0-dev.7\n", hata: "" });
 });
 
 test("CLI yapı örneğini denetler ve alan/indeks zincirlerini çalıştırır", () => {

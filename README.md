@@ -1,6 +1,6 @@
 # Ata Dil
 
-Ata, Türkçenin düşünce sırasını ve doğal yapısını sözdizimine yansıtmayı amaçlayan deneysel bir hobi ve öğrenme projesidir. Unicode/Türkçe tanımlayıcıları, statik tip denetimi, lexical kapsamı, kullanıcı işlevleri, yapıları ve listeleri olan yorumlanan bir dildir. Kaynak dosyalarının uzantısı `.ata`, mevcut sürüm **0.1.0-dev.6** (Aşama 6).
+Ata, Türkçenin düşünce sırasını ve doğal yapısını sözdizimine yansıtmayı amaçlayan deneysel bir hobi ve öğrenme projesidir. Unicode/Türkçe tanımlayıcıları, statik tip denetimi, lexical kapsamı, kullanıcı işlevleri, yapıları ve listeleri olan yorumlanan bir dildir. Kaynak dosyalarının uzantısı `.ata`, mevcut sürüm **0.1.0-dev.7** (Aşama 7).
 
 Bun 1.4.2, TypeScript 7 ve Chevrotain kullanılır. Tek paketli proje ESM biçimindedir; testler `bun:test` ile çalışır. Tek çalışma zamanı bağımlılığı Chevrotain'dir. Kod kalitesi Oxlint, biçimlendirme Oxfmt ile denetlenir; `.ata` dosyaları Oxfmt kapsamı dışındadır.
 
@@ -52,6 +52,22 @@ Yapılar yalnızca üst seviyede tanımlanır; her alanın tipi ve oluşturma s�
 Alan okuma ve liste indeksleme çağrıyla zincirlenebilir: `getir()[0].adres.şehir`. İndeksleme yalnızca listelerde geçerlidir; `liste<T>[sayı]` sonucu `T` olur. İndeks güvenli tam sayı değilse `ATA5008`, negatif veya sınır dışındaysa `ATA5009` üretilir. İsteğe bağlı yapı/liste doğrudan okunamaz; yapı eşitliği, alan/indeks ataması ve yazı indeksleme desteklenmez. Değiştirilebilir yapı bağının tamamı yeniden atanabilir. Yazdırma, yerleştirme ve `yazıya`, yapıları `Kullanıcı { ad: "İbrahim" }` biçiminde gösterir.
 
 Yeni anlamsal tanılar: `ATA3004` tanımsız tip, `ATA3005` yinelenen yapı adı; `ATA4017` eksik alan, `ATA4018` yinelenen alan, `ATA4019` bulunamayan alan, `ATA4020` yapı gerektiren alan erişimi, `ATA4021` liste gerektiren indeksleme, `ATA4022` sayı olmayan indeks. Alan tipi uyuşmazlığında mevcut `ATA4001` kullanılır.
+
+## İsteğe bağlı tip daraltma
+
+```ata
+yapı Kullanıcı { ad: yazı }
+değişken kullanıcı: Kullanıcı? = yok
+kullanıcı = Kullanıcı { ad: "İbrahim" }
+
+eğer kullanıcı != yok ise {
+    "Merhaba {kullanıcı.ad}!" yazdır
+}
+```
+
+Çıktı: `Merhaba İbrahim!`. `!= yok` doğru kolda `T?` adını `T` olarak görür; `== yok` için aynı bilgi `değilse` kolundadır. Operand sırası değişebilir; postfix `değil` kolları tersler. `ve` sağ tarafı solun doğru, `veya` sağ tarafı solun yanlış bilgisiyle denetlenir. `iken` gövdesi koşulun doğru bilgisiyle girer. Yapı, liste, yazı, sabit, parametre ve liste döngüsü adları desteklenir; bildirilmiş tip değişmez.
+
+Her atama, yeni değer dolu olsa bile mutable adın daraltmasını temel tipe sıfırlar. Kullanıcı işlevi çağrısı global mutable optional adların daraltmasını kaldırır; yerel mutable adlar ve yerleşik çağrılar bu kuraldan etkilenmez. Döngüde yazılabilecek bağlar girişte sıfırlanır, koşul yeniden daraltabilir. Blok/döngü sonrasına yeni daraltma taşınmaz. Alan/indeks yolları, alias takibi, atamadan tip çıkarımı ve erken dönüşten sonraki guard daraltması yoktur. Optional alanı önce `sabit adres = kişi.adres` gibi bir ada bağlayıp o adı sınamak mümkündür.
 
 ## Temel standart işlevler
 
