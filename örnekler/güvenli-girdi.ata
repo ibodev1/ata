@@ -1,0 +1,7 @@
+sabit yaş = sayıya(girdi("Yaşınız: "))
+
+eğer yaş == yok ise {
+    "Geçerli bir sayı giriniz." yazdır
+} değilse {
+    "Gelecek yıl {yaş + 1} yaşında olacaksınız." yazdır
+}

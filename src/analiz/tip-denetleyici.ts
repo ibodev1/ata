@@ -9,6 +9,7 @@ import {
   argümanSayısıUygun,
   parametreKabulEder,
   parametreyiGöster,
+  yerleşikDönüşTipi,
 } from "../standart/yerleşikler.ts";
 
 const bilinmeyen: Tip = { tür: "bilinmeyen" };
@@ -420,11 +421,13 @@ export function tipleriDenetle(
               ifade.aralık,
             );
           }
-          ifade.argümanlar.forEach((argüman, sıra) => {
+          const argümanTipleri = ifade.argümanlar.map((argüman, sıra) => {
             const kural = işlev.parametreler[sıra];
             // Eleman tipi uzunluk/gösterim için önemsizdir; yalnızca boş literal bağlam alır.
             const bağlam: Tip | undefined =
-              kural && kural !== "yazı" && argüman.tür === "liste" && argüman.elemanlar.length === 0
+              (kural === "uzunluğu-olan" || kural === "gösterilebilir") &&
+              argüman.tür === "liste" &&
+              argüman.elemanlar.length === 0
                 ? { tür: "liste", eleman: bilinmeyen }
                 : undefined;
             const verilen = ifadeDenetle(argüman, bağlam);
@@ -434,8 +437,9 @@ export function tipleriDenetle(
                 `'${işlev.ad}' işlevinin ${sıra + 1}. argümanı '${parametreyiGöster(kural)}' olmalıdır; '${tipiGöster(verilen)}' verildi.`,
                 argüman.aralık,
               );
+            return verilen;
           });
-          return işlev.dönüş;
+          return yerleşikDönüşTipi(işlev, argümanTipleri);
         }
         const imza = sembol?.tür === "işlev" ? işlevİmzaları.get(sembol) : undefined;
         if (!imza) {

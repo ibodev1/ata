@@ -1,6 +1,6 @@
 # Ata Dil
 
-Ata, Türkçenin düşünce sırasını ve doğal yapısını sözdizimine yansıtmayı amaçlayan deneysel bir hobi ve öğrenme projesidir. Unicode/Türkçe tanımlayıcıları, statik tip denetimi, lexical kapsamı, kullanıcı işlevleri, yapıları ve listeleri olan yorumlanan bir dildir. Kaynak dosyalarının uzantısı `.ata`, mevcut sürüm **0.1.0-dev.7** (Aşama 7).
+Ata, Türkçenin düşünce sırasını ve doğal yapısını sözdizimine yansıtmayı amaçlayan deneysel bir hobi ve öğrenme projesidir. Unicode/Türkçe tanımlayıcıları, statik tip denetimi, lexical kapsamı, kullanıcı işlevleri, yapıları ve listeleri olan yorumlanan bir dildir. Kaynak dosyalarının uzantısı `.ata`, mevcut sürüm **0.1.0-dev.8** (Aşama 8).
 
 Bun 1.4.2, TypeScript 7 ve Chevrotain kullanılır. Tek paketli proje ESM biçimindedir; testler `bun:test` ile çalışır. Tek çalışma zamanı bağımlılığı Chevrotain'dir. Kod kalitesi Oxlint, biçimlendirme Oxfmt ile denetlenir; `.ata` dosyaları Oxfmt kapsamı dışındadır.
 
@@ -14,6 +14,8 @@ bun run src/cli/cli.ts denetle örnekler/merhaba.ata
 bun run src/cli/cli.ts çalıştır örnekler/merhaba.ata
 bun run src/cli/cli.ts çalıştır örnekler/temeller.ata
 bun run src/cli/cli.ts çalıştır örnekler/girdi.ata
+bun run src/cli/cli.ts denetle örnekler/güvenli-girdi.ata
+bun run src/cli/cli.ts çalıştır örnekler/güvenli-girdi.ata
 bun run src/cli/cli.ts denetle örnekler/yapılar.ata
 bun run src/cli/cli.ts çalıştır örnekler/yapılar.ata
 bun run typecheck
@@ -73,14 +75,31 @@ Her atama, yeni değer dolu olsa bile mutable adın daraltmasını temel tipe s�
 
 Yerleşikler normal tanımlayıcılardır; global kapsamda hazır bulunurlar, aynı kapsamda yeniden tanımlanamazlar; iç kapsamda gölgelenebilirler. Kullanıcı işlevleri gibi yalnızca çağrı hedefi olarak kullanılabilirler.
 
-| İşlev                             | Kabul edilen argümanlar              | Sonuç    |
-| --------------------------------- | ------------------------------------ | -------- |
-| `girdi`                           | sıfır argüman veya bir `yazı` istemi | `yazı`   |
-| `uzunluk`                         | `yazı` veya `liste<T>`               | `sayı`   |
-| `yazıya`                          | `hiç` dışındaki kullanıcı değeri     | `yazı`   |
-| `büyük_harf`, `küçük_harf`        | `yazı`                               | `yazı`   |
-| `kırp`                            | `yazı`                               | `yazı`   |
-| `içerir`, `başlar_mı`, `biter_mi` | iki `yazı`                           | `mantık` |
+| İşlev                             | Kabul edilen argümanlar              | Sonuç     |
+| --------------------------------- | ------------------------------------ | --------- |
+| `girdi`                           | sıfır argüman veya bir `yazı` istemi | `yazı`    |
+| `uzunluk`                         | `yazı` veya `liste<T>`               | `sayı`    |
+| `yazıya`                          | `hiç` dışındaki kullanıcı değeri     | `yazı`    |
+| `büyük_harf`, `küçük_harf`        | `yazı`                               | `yazı`    |
+| `kırp`                            | `yazı`                               | `yazı`    |
+| `içerir`, `başlar_mı`, `biter_mi` | iki `yazı`                           | `mantık`  |
+| `sayıya`                          | `yazı`                               | `sayı?`   |
+| `mantığa`                         | `yazı`                               | `mantık?` |
+| `al`                              | `liste<T>`, `sayı`                   | `T?`      |
+| `ilk`, `son`                      | `liste<T>`                           | `T?`      |
+
+Güvenli dönüşüm ve erişim başarısızlığında tanı yerine `yok` döner. `sayıya` Unicode boşlukları kırpar; işaretli/işaretsiz tam sayı veya noktalı ondalık metni kabul eder (`+42`, `001.50`). Üslü gösterim, hex/binary, virgül, `.5`, `1.`, boş metin ve sonsuza taşan sonuç reddedilir. Sonlu sayılar JavaScript `number` hassasiyetini kullanır. `mantığa` açık `tr-TR` ile yalnızca `doğru` / `yanlış` metinlerini, harf büyüklüğünden bağımsız kabul eder; `true`, `false`, `1`, `0` kabul edilmez.
+
+`al` negatif, sınır dışı, kesirli veya güvenli tam sayı olmayan indekste `yok` döner; doğrudan `liste[indeks]` hata üretmeye devam eder. `ilk` / `son` boş listede `yok`, dolu listede ilgili uç elemanı döndürür. Eleman zaten `T?` ise sonuç yine `T?` olur; `T??` üretilmez. Boş listede eleman tipi açıkça belirtilmelidir. Bu yardımcılar kullanıcı generics sözdizimi eklemez.
+
+```ata
+sabit yaş = sayıya("21")
+eğer yaş != yok ise {
+    yaş + 1 yazdır
+}
+```
+
+Çıktı: `22`. `örnekler/güvenli-girdi.ata`, `sayıya(girdi(...))` ile aynı denetimi gerçek girdiye uygular.
 
 `girdi("Adınız: ")` senkron çalışır; CLI istemi aynen gösterip stdin'den UTF-8 satır okur (LF/CRLF). Bun `prompt` isteme ek boşluk kattığından küçük bir senkron okuyucu kullanılır. Interpreter testlerinde `yorumla(program, { çıktıYaz, girdiOku: (istem) => "İbrahim" })` ile girdi enjekte edilir. Girdi sağlayıcısı yoksa, `null` döndürürse veya hata atarsa `ATA5007: Girdi okunamadı.` üretilir; boş yazı geçerli girdidir.
 

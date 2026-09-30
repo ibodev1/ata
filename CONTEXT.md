@@ -52,11 +52,17 @@ Ata, Türkçenin doğal düşünce sırasını sözdizimine yansıtmayı amaçla
 
 **Yerleşik işlev**: Global kapsamda hazır bulunan, yalnızca çağrılabilen standart işlev. Tek katalog adı, argüman kurallarını, dönüş tipini ve çalışma zamanı uygulamasını birlikte tanımlar.
 
+**Güvenli dönüşüm**: Yazıdan sayı veya mantık değerine dönüşüm; geçersiz metin ve sonlu olmayan sayı sonucu `yok` döndürür.
+
+**Güvenli liste erişimi**: Eleman bulunmadığında `yok` döndüren `al`, `ilk` veya `son` çağrısı. Sonuç eleman tipinin tek katmanlı isteğe bağlı biçimidir.
+
 **Girdi sağlayıcısı**: Yorumlayıcıya enjekte edilen senkron `(istem: string) => string | null` sınırı. CLI istemi aynen gösteren UTF-8 stdin satır okuyucusu kullanır; okunamayan girdi `ATA5007` üretir.
 
 ## Mevcut aşama
 
-Aşama 7 (`0.1.0-dev.7`) tamamlandı: Optional akışa duyarlı daraltma mevcut. Doğrudan adlarda `x != yok` / `x == yok`, `eğer` / `değilse`, postfix `değil`, `ve` / `veya` kısa devresi ve `iken` gövdesi desteklenir. Atama daraltmayı temel tipe sıfırlar; kullanıcı çağrısı global mutable optional daraltmaları bozar. Döngüde yazılabilen bağlar girişte sıfırlanır. Alan yolu, alias, guard-clause ve blok sonrası daraltma henüz yoktur; AST/runtime değişmez.
+Aşama 8 (`0.1.0-dev.8`) tamamlandı: `sayıya(yazı) → sayı?`, `mantığa(yazı) → mantık?`, `al(liste<T>, sayı) → T?`, `ilk(liste<T>) → T?` ve `son(liste<T>) → T?` mevcut. Güvenli erişim/dönüşüm başarısızlığında `yok` döner; doğrudan `[]` indeksleme strict kalır. Optional elemanlar ikinci optional katman üretmez. Kullanıcı generics sistemi yoktur.
+
+Optional akışa duyarlı daraltma mevcut. Doğrudan adlarda `x != yok` / `x == yok`, `eğer` / `değilse`, postfix `değil`, `ve` / `veya` kısa devresi ve `iken` gövdesi desteklenir. Atama daraltmayı temel tipe sıfırlar; kullanıcı çağrısı global mutable optional daraltmaları bozar. Döngüde yazılabilen bağlar girişte sıfırlanır. Alan yolu, alias, guard-clause ve blok sonrası daraltma henüz yoktur; AST/runtime değişmez.
 
 Nominal yapı tipleri, yapı oluşturma, alan erişimi ve liste indeksleme mevcut. Alan/liste mutasyonu henüz yok. Temel yerleşik işlev sistemi, senkron `girdi`, Türkçe yazı yardımcıları ve `ata denetle` korunur. Yazdırma, yerleştirme ve `yazıya` yapı değerleri dahil ortak gösterimi kullanır.
 

@@ -5,7 +5,7 @@ import { hata } from "../çalışma/hata.ts";
 import { yazıyaDönüştür } from "../çalışma/değer.ts";
 
 export type GirdiOku = (istem: string) => string | null;
-export type YerleşikParametre = "yazı" | "uzunluğu-olan" | "gösterilebilir";
+export type YerleşikParametre = "yazı" | "sayı" | "liste" | "uzunluğu-olan" | "gösterilebilir";
 
 export interface YerleşikBağlam {
   readonly girdiOku?: GirdiOku;
@@ -15,7 +15,7 @@ export interface Yerleşikİşlev {
   readonly ad: string;
   readonly parametreler: readonly YerleşikParametre[];
   readonly enAzArgüman?: number;
-  readonly dönüş: Tip;
+  readonly dönüş: Tip | ((argümanTipleri: readonly Tip[]) => Tip);
   readonly uygula: (
     argümanlar: readonly Değer[],
     bağlam: YerleşikBağlam,
@@ -34,6 +34,10 @@ export function parametreKabulEder(kural: YerleşikParametre, tip: Tip): boolean
   switch (kural) {
     case "yazı":
       return tip.tür === "yazı";
+    case "sayı":
+      return tip.tür === "sayı";
+    case "liste":
+      return tip.tür === "liste";
     case "uzunluğu-olan":
       return tip.tür === "yazı" || tip.tür === "liste";
     case "gösterilebilir":
@@ -45,6 +49,10 @@ export function parametreyiGöster(kural: YerleşikParametre): string {
   switch (kural) {
     case "yazı":
       return "yazı";
+    case "sayı":
+      return "sayı";
+    case "liste":
+      return "liste<T>";
     case "uzunluğu-olan":
       return "yazı veya liste<T>";
     case "gösterilebilir":
@@ -59,7 +67,83 @@ function yazıAl(argümanlar: readonly Değer[], sıra: number, aralık: KaynakA
   return değer.değer;
 }
 
+export function yerleşikDönüşTipi(işlev: Yerleşikİşlev, argümanTipleri: readonly Tip[]): Tip {
+  return typeof işlev.dönüş === "function" ? işlev.dönüş(argümanTipleri) : işlev.dönüş;
+}
+
+function isteğeBağlı(tip: Tip): Tip {
+  return tip.tür === "isteğe-bağlı" || tip.tür === "bilinmeyen" || tip.tür === "yok"
+    ? tip
+    : { tür: "isteğe-bağlı", temel: tip };
+}
+
+function listeElemanınınTipi(argümanTipleri: readonly Tip[]): Tip {
+  const liste = argümanTipleri[0];
+  return liste?.tür === "liste" ? isteğeBağlı(liste.eleman) : { tür: "bilinmeyen" };
+}
+
+function listeAl(argümanlar: readonly Değer[], aralık: KaynakAralığı): readonly Değer[] {
+  const liste = argümanlar[0];
+  if (liste?.tür !== "liste")
+    return hata("ATA5005", "Yerleşik işlev argümanı 'liste' olmalıdır.", aralık);
+  return liste.elemanlar;
+}
+
+function güvenliEleman(elemanlar: readonly Değer[], indeks: number): Değer {
+  return Number.isSafeInteger(indeks) && indeks >= 0
+    ? (elemanlar[indeks] ?? { tür: "yok" })
+    : { tür: "yok" };
+}
+
 export const yerleşikler: readonly Yerleşikİşlev[] = [
+  {
+    ad: "ilk",
+    parametreler: ["liste"],
+    dönüş: listeElemanınınTipi,
+    uygula: (argümanlar, _bağlam, aralık) => güvenliEleman(listeAl(argümanlar, aralık), 0),
+  },
+  {
+    ad: "son",
+    parametreler: ["liste"],
+    dönüş: listeElemanınınTipi,
+    uygula: (argümanlar, _bağlam, aralık) => {
+      const elemanlar = listeAl(argümanlar, aralık);
+      return güvenliEleman(elemanlar, elemanlar.length - 1);
+    },
+  },
+  {
+    ad: "al",
+    parametreler: ["liste", "sayı"],
+    dönüş: listeElemanınınTipi,
+    uygula: (argümanlar, _bağlam, aralık) => {
+      const elemanlar = listeAl(argümanlar, aralık);
+      const indeks = argümanlar[1];
+      if (indeks?.tür !== "sayı") return hata("ATA5005", "'al' indeksi 'sayı' olmalıdır.", aralık);
+      return güvenliEleman(elemanlar, indeks.değer);
+    },
+  },
+  {
+    ad: "mantığa",
+    parametreler: ["yazı"],
+    dönüş: { tür: "isteğe-bağlı", temel: { tür: "mantık" } },
+    uygula: (argümanlar, _bağlam, aralık) => {
+      const metin = yazıAl(argümanlar, 0, aralık).trim().toLocaleLowerCase("tr-TR");
+      return metin === "doğru" || metin === "yanlış"
+        ? { tür: "mantık", değer: metin === "doğru" }
+        : { tür: "yok" };
+    },
+  },
+  {
+    ad: "sayıya",
+    parametreler: ["yazı"],
+    dönüş: { tür: "isteğe-bağlı", temel: { tür: "sayı" } },
+    uygula: (argümanlar, _bağlam, aralık) => {
+      const metin = yazıAl(argümanlar, 0, aralık).trim();
+      if (!/^[+-]?\d+(?:\.\d+)?$/.test(metin)) return { tür: "yok" };
+      const sayı = Number(metin);
+      return Number.isFinite(sayı) ? { tür: "sayı", değer: sayı } : { tür: "yok" };
+    },
+  },
   {
     ad: "girdi",
     parametreler: ["yazı"],

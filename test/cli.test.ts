@@ -14,7 +14,25 @@ function komutÇalıştır(...argümanlar: string[]) {
 }
 
 test("CLI sürümü gösterir", () => {
-  expect(komutÇalıştır("sürüm")).toEqual({ kod: 0, çıktı: "Ata Dil 0.1.0-dev.7\n", hata: "" });
+  expect(komutÇalıştır("sürüm")).toEqual({ kod: 0, çıktı: "Ata Dil 0.1.0-dev.8\n", hata: "" });
+});
+
+test("CLI güvenli girdi örneğini stdin okumadan denetler", () => {
+  const yol = Bun.file(new URL("../örnekler/güvenli-girdi.ata", import.meta.url)).name!;
+  expect(komutÇalıştır("denetle", yol)).toEqual({ kod: 0, çıktı: "Denetim başarılı.\n", hata: "" });
+});
+
+test.each([
+  { girdi: "21\n", çıktı: "Yaşınız: Gelecek yıl 22 yaşında olacaksınız.\n" },
+  { girdi: "abc\r\n", çıktı: "Yaşınız: Geçerli bir sayı giriniz.\n" },
+])("CLI güvenli girdi örneğini gerçek stdin ile çalıştırır: %j", ({ girdi, çıktı }) => {
+  const yol = Bun.file(new URL("../örnekler/güvenli-girdi.ata", import.meta.url)).name!;
+  const sonuç = Bun.spawnSync([process.execPath, "run", cliYolu, "çalıştır", yol], {
+    stdin: Buffer.from(girdi),
+  });
+  expect(sonuç.exitCode).toBe(0);
+  expect(sonuç.stdout.toString()).toBe(çıktı);
+  expect(sonuç.stderr.toString()).toBe("");
 });
 
 test("CLI yapı örneğini denetler ve alan/indeks zincirlerini çalıştırır", () => {
