@@ -14,7 +14,40 @@ function komutÇalıştır(...argümanlar: string[]) {
 }
 
 test("CLI sürümü gösterir", () => {
-  expect(komutÇalıştır("sürüm")).toEqual({ kod: 0, çıktı: "Ata Dil 0.1.0-dev.8\n", hata: "" });
+  expect(komutÇalıştır("sürüm")).toEqual({ kod: 0, çıktı: "Ata Dil 0.1.0-dev.9\n", hata: "" });
+});
+
+test("CLI eşleştirme örneğini denetler ve çalıştırır", () => {
+  const yol = Bun.file(new URL("../örnekler/eşleştirme.ata", import.meta.url)).name!;
+  expect(komutÇalıştır("denetle", yol)).toEqual({ kod: 0, çıktı: "Denetim başarılı.\n", hata: "" });
+  expect(komutÇalıştır("çalıştır", yol)).toEqual({
+    kod: 0,
+    çıktı: "İbrahim: yönetici\n",
+    hata: "",
+  });
+});
+
+test.each([
+  { kod: "D::a eşleştir { D::a ise {} }", tanı: "ATA4030" },
+  { kod: "D::a eşleştir { D::a ise {} D::a ise {} D::b ise {} }", tanı: "ATA4029" },
+  { kod: "seçenek B { a }; D::a eşleştir { B::a ise {} diğer ise {} }", tanı: "ATA4028" },
+  { kod: "D::bilinmeyen yazdır", tanı: "ATA4026" },
+  { kod: "D::a eşleştir { diğer ise {} D::a ise {} }", tanı: "ATA4032" },
+  { kod: "42 eşleştir { diğer ise {} }", tanı: "ATA4027" },
+])("CLI seçenek hatasını statik reddeder: %j", async ({ kod, tanı }) => {
+  const yol = `${örnekYolu}.${crypto.randomUUID()}.ata`;
+  try {
+    await Bun.write(yol, `seçenek D { a, b }; ${kod}`);
+    for (const komut of ["denetle", "çalıştır"]) {
+      const sonuç = komutÇalıştır(komut, yol);
+      expect(sonuç.kod).toBe(1);
+      expect(sonuç.çıktı).toBe("");
+      expect(sonuç.hata).toContain(`${tanı} (hata):`);
+      expect(sonuç.hata).not.toContain("Error:");
+    }
+  } finally {
+    await Bun.file(yol).delete();
+  }
 });
 
 test("CLI güvenli girdi örneğini stdin okumadan denetler", () => {

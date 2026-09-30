@@ -58,6 +58,7 @@ class AtaAyrıştırıcısı extends CstParser {
     this.OR([
       { ALT: () => this.SUBRULE(this.işlevBildirimi) },
       { ALT: () => this.SUBRULE(this.yapıBildirimi) },
+      { ALT: () => this.SUBRULE(this.seçenekBildirimi) },
       { ALT: () => this.SUBRULE(this.bildirim) },
     ]),
   );
@@ -76,6 +77,7 @@ class AtaAyrıştırıcısı extends CstParser {
       this.OR([
         { ALT: () => this.CONSUME(tokenTürü("yazdır")) },
         { ALT: () => this.CONSUME(tokenTürü("döndür")) },
+        { ALT: () => this.SUBRULE(this.eşleştirmeSonu) },
         {
           ALT: () => {
             this.CONSUME(tokenTürü("iken"));
@@ -98,6 +100,55 @@ class AtaAyrıştırıcısı extends CstParser {
   });
 
   readonly satırlar = this.RULE("satırlar", () => this.MANY(() => this.CONSUME(SatırSonu)));
+
+  readonly seçenekBildirimi = this.RULE("seçenekBildirimi", () => {
+    this.CONSUME(tokenTürü("seçenek"));
+    this.CONSUME(Ad, { LABEL: "ad" });
+    this.SUBRULE(this.satırlar);
+    this.CONSUME(tokenTürü("SolSüslü"));
+    this.SUBRULE2(this.satırlar);
+    this.OPTION(() => {
+      this.SUBRULE(this.seçenekÜyesi);
+      this.MANY(() => {
+        this.SUBRULE(this.alanAyırıcı);
+        this.OR([
+          { ALT: () => this.SUBRULE2(this.seçenekÜyesi) },
+          { GATE: () => tokenMatcher(this.LA(1), tokenTürü("SağSüslü")), ALT: () => {} },
+        ]);
+      });
+    });
+    this.CONSUME(tokenTürü("SağSüslü"));
+  });
+
+  readonly seçenekÜyesi = this.RULE("seçenekÜyesi", () => this.CONSUME(Ad, { LABEL: "ad" }));
+
+  readonly seçenekDeğeri = this.RULE("seçenekDeğeri", () => {
+    this.CONSUME(Ad, { LABEL: "ad" });
+    this.CONSUME(tokenTürü("ÇiftİkiNokta"));
+    this.CONSUME2(Ad, { LABEL: "üye" });
+  });
+
+  readonly eşleştirmeSonu = this.RULE("eşleştirmeSonu", () => {
+    this.CONSUME(tokenTürü("eşleştir"));
+    this.SUBRULE(this.satırlar);
+    this.CONSUME(tokenTürü("SolSüslü"));
+    this.SUBRULE2(this.satırlar);
+    this.MANY(() => {
+      this.SUBRULE(this.eşleştirmeKolu);
+      this.SUBRULE3(this.satırlar);
+    });
+    this.CONSUME(tokenTürü("SağSüslü"));
+  });
+
+  readonly eşleştirmeKolu = this.RULE("eşleştirmeKolu", () => {
+    this.OR([
+      { ALT: () => this.SUBRULE(this.seçenekDeğeri) },
+      { ALT: () => this.CONSUME(tokenTürü("diğer")) },
+    ]);
+    this.CONSUME(tokenTürü("ise"));
+    this.SUBRULE(this.satırlar);
+    this.SUBRULE(this.blok);
+  });
 
   readonly blok = this.RULE("blok", () => {
     this.CONSUME(tokenTürü("SolSüslü"));
@@ -365,6 +416,7 @@ class AtaAyrıştırıcısı extends CstParser {
       { ALT: () => this.CONSUME(tokenTürü("doğru"), { LABEL: "değer" }) },
       { ALT: () => this.CONSUME(tokenTürü("yanlış"), { LABEL: "değer" }) },
       { ALT: () => this.CONSUME(tokenTürü("yok"), { LABEL: "değer" }) },
+      { ALT: () => this.SUBRULE(this.seçenekDeğeri) },
       { ALT: () => this.SUBRULE(this.yapıOluşturma) },
       { ALT: () => this.CONSUME(Ad, { LABEL: "değer" }) },
       {

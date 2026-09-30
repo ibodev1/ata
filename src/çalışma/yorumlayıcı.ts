@@ -1,4 +1,11 @@
-import type { Program, Bildirim, İfade, Blok, YapıBildirimi } from "../ast/düğümler.ts";
+import type {
+  Program,
+  Bildirim,
+  İfade,
+  Blok,
+  YapıBildirimi,
+  SeçenekBildirimi,
+} from "../ast/düğümler.ts";
 import type { Tanı } from "../tanılama/tanı.ts";
 import type { Değer } from "./değer.ts";
 import { yazıyaDönüştür, hiç } from "./değer.ts";
@@ -23,12 +30,18 @@ const devam: Akış = { tür: "devam" };
 
 export function yorumla(program: Program, seçenekler: YorumlamaSeçenekleri): YorumlamaSonucu {
   let çağrıDerinliği = 0;
-  const yapılar = new Map<string, YapıBildirimi>();
+  const tipBildirimleri = new Map<string, YapıBildirimi | SeçenekBildirimi>();
   function değerlendir(ifade: İfade, ortam: Ortam): Değer {
     switch (ifade.tür) {
+      case "seçenek-değeri": {
+        const seçenek = tipBildirimleri.get(ifade.seçenekAdı);
+        if (seçenek?.tür !== "seçenek" || !seçenek.üyeler.some((üye) => üye.ad === ifade.üyeAdı))
+          return hata("ATA5005", "Çalışma zamanında geçersiz seçenek değeri.", ifade.aralık);
+        return { tür: "seçenek", seçenekAdı: seçenek.ad, üyeAdı: ifade.üyeAdı };
+      }
       case "yapı-oluşturma": {
-        const yapı = yapılar.get(ifade.yapıAdı);
-        if (!yapı)
+        const yapı = tipBildirimleri.get(ifade.yapıAdı);
+        if (yapı?.tür !== "yapı")
           return hata(
             "ATA5005",
             `Çalışma zamanı yapı tipi bulunamadı: '${ifade.yapıAdı}'.`,
@@ -212,6 +225,27 @@ export function yorumla(program: Program, seçenekler: YorumlamaSeçenekleri): Y
         break;
       case "blok":
         return blokYürüt(bildirim, ortam);
+      case "eşleştir": {
+        const hedef = değerlendir(bildirim.hedef, ortam);
+        if (hedef.tür !== "seçenek")
+          return hata(
+            "ATA5005",
+            "Eşleştir hedefi seçenek değeri olmalıdır.",
+            bildirim.hedef.aralık,
+          );
+        const kol = bildirim.kollar.find(
+          (aday) =>
+            aday.desen.tür === "diğer" ||
+            (aday.desen.seçenekAdı === hedef.seçenekAdı && aday.desen.üyeAdı === hedef.üyeAdı),
+        );
+        if (!kol)
+          return hata(
+            "ATA5005",
+            "Çalışma zamanında eşleşen seçenek kolu bulunamadı.",
+            bildirim.aralık,
+          );
+        return blokYürüt(kol.blok, ortam);
+      }
       case "koşul":
         if (mantıkAl(değerlendir(bildirim.koşul, ortam), bildirim.koşul.aralık))
           return blokYürüt(bildirim.doğruysa, ortam);
@@ -246,6 +280,7 @@ export function yorumla(program: Program, seçenekler: YorumlamaSeçenekleri): Y
         return { tür: "dönüş", değer: bildirim.ifade ? değerlendir(bildirim.ifade, ortam) : hiç };
       case "işlev":
       case "yapı":
+      case "seçenek":
         break;
     }
     return devam;
@@ -256,13 +291,19 @@ export function yorumla(program: Program, seçenekler: YorumlamaSeçenekleri): Y
     for (const işlev of yerleşikler)
       küresel.tanımla(işlev.ad, { tür: "yerleşik", işlev }, program.aralık);
     for (const bildirim of program.bildirimler) {
-      if (bildirim.tür === "yapı") {
+      if (bildirim.tür === "yapı" || bildirim.tür === "seçenek") {
+        const adlar = bildirim.tür === "yapı" ? bildirim.alanlar : bildirim.üyeler;
         if (
-          yapılar.has(bildirim.ad) ||
-          new Set(bildirim.alanlar.map((alan) => alan.ad)).size !== bildirim.alanlar.length
+          tipBildirimleri.has(bildirim.ad) ||
+          new Set(adlar.map((öğe) => öğe.ad)).size !== adlar.length ||
+          (bildirim.tür === "seçenek" && adlar.length === 0)
         )
-          hata("ATA5005", "Yinelenen çalışma zamanı yapı tipi veya alanı.", bildirim.aralık);
-        yapılar.set(bildirim.ad, bildirim);
+          hata(
+            "ATA5005",
+            `Geçersiz çalışma zamanı tip bildirimi: '${bildirim.ad}'.`,
+            bildirim.aralık,
+          );
+        tipBildirimleri.set(bildirim.ad, bildirim);
       }
       if (bildirim.tür === "işlev")
         küresel.tanımla(bildirim.ad, { tür: "işlev", bildirim, ortam: küresel }, bildirim.aralık);

@@ -66,6 +66,29 @@ export interface YapıBildirimi extends Düğüm {
   readonly alanlar: readonly YapıAlanı[];
 }
 
+export interface SeçenekBildirimi extends Düğüm {
+  readonly tür: "seçenek";
+  readonly ad: string;
+  readonly üyeler: readonly (Düğüm & { readonly ad: string })[];
+}
+
+export interface SeçenekDeğeriİfadesi extends Düğüm {
+  readonly tür: "seçenek-değeri";
+  readonly seçenekAdı: string;
+  readonly üyeAdı: string;
+}
+
+export interface EşleştirmeKolu extends Düğüm {
+  readonly desen: SeçenekDeğeriİfadesi | (Düğüm & { readonly tür: "diğer" });
+  readonly blok: Blok;
+}
+
+export interface EşleştirBildirimi extends Düğüm {
+  readonly tür: "eşleştir";
+  readonly hedef: İfade;
+  readonly kollar: readonly EşleştirmeKolu[];
+}
+
 export type Bildirim =
   | DeğerBildirimi
   | Blok
@@ -74,6 +97,8 @@ export type Bildirim =
   | ListeDöngüsü
   | İşlevBildirimi
   | YapıBildirimi
+  | SeçenekBildirimi
+  | EşleştirBildirimi
   | (Düğüm & { readonly tür: "yazdır" | "ifade-bildirimi"; readonly ifade: İfade })
   | (Düğüm & { readonly tür: "döndür"; readonly ifade: İfade | null });
 
@@ -104,6 +129,7 @@ export type YazıParçası =
   | { readonly tür: "ifade"; readonly ifade: İfade };
 
 export type İfade =
+  | SeçenekDeğeriİfadesi
   | (Düğüm & {
       readonly tür: "yapı-oluşturma";
       readonly yapıAdı: string;

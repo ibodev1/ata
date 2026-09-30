@@ -29,6 +29,8 @@ export function ikiliUygula(
     else if (sol.tür === "sayı" && sağ.tür === "sayı") eşit = sol.değer === sağ.değer;
     else if (sol.tür === "yazı" && sağ.tür === "yazı") eşit = sol.değer === sağ.değer;
     else if (sol.tür === "mantık" && sağ.tür === "mantık") eşit = sol.değer === sağ.değer;
+    else if (sol.tür === "seçenek" && sağ.tür === "seçenek" && sol.seçenekAdı === sağ.seçenekAdı)
+      eşit = sol.üyeAdı === sağ.üyeAdı;
     else return hata("ATA5005", "Çalışma zamanında bu değerler karşılaştırılamaz.", aralık);
     return { tür: "mantık", değer: işleç === "==" ? eşit : !eşit };
   }

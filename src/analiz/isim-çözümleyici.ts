@@ -1,4 +1,12 @@
-import type { Program, Bildirim, İfade, Parametre, Blok, YapıBildirimi } from "../ast/düğümler.ts";
+import type {
+  Program,
+  Bildirim,
+  İfade,
+  Parametre,
+  Blok,
+  YapıBildirimi,
+  SeçenekBildirimi,
+} from "../ast/düğümler.ts";
 import type { Tanı } from "../tanılama/tanı.ts";
 import { Kapsam } from "./kapsam.ts";
 import type { Sembol } from "./kapsam.ts";
@@ -8,7 +16,7 @@ export interface İsimÇözümlemeSonucu {
   readonly tanılar: readonly Tanı[];
   readonly bağlar: ReadonlyMap<İfade, Sembol>;
   readonly bildirimSembolleri: ReadonlyMap<Bildirim | Parametre, Sembol>;
-  readonly yapılar: ReadonlyMap<string, YapıBildirimi>;
+  readonly tipBildirimleri: ReadonlyMap<string, YapıBildirimi | SeçenekBildirimi>;
 }
 
 export function isimleriÇöz(program: Program, yol = "<kaynak>"): İsimÇözümlemeSonucu {
@@ -16,7 +24,7 @@ export function isimleriÇöz(program: Program, yol = "<kaynak>"): İsimÇözüm
   const bağlar = new Map<İfade, Sembol>();
   const bildirimSembolleri = new Map<Bildirim | Parametre, Sembol>();
   const programKapsamı = new Kapsam();
-  const yapılar = new Map<string, YapıBildirimi>();
+  const tipBildirimleri = new Map<string, YapıBildirimi | SeçenekBildirimi>();
   for (const işlev of yerleşikler) programKapsamı.ekle({ tür: "yerleşik", ad: işlev.ad, işlev });
 
   function ekle(kapsam: Kapsam, sembol: Exclude<Sembol, { tür: "yerleşik" }>): void {
@@ -86,6 +94,7 @@ export function isimleriÇöz(program: Program, yol = "<kaynak>"): İsimÇözüm
         });
         break;
       case "sayı":
+      case "seçenek-değeri":
       case "mantık":
       case "yok":
         break;
@@ -99,6 +108,11 @@ export function isimleriÇöz(program: Program, yol = "<kaynak>"): İsimÇözüm
   function bildirimÇöz(bildirim: Bildirim, kapsam: Kapsam): void {
     switch (bildirim.tür) {
       case "yapı":
+      case "seçenek":
+        break;
+      case "eşleştir":
+        ifadeÇöz(bildirim.hedef, kapsam);
+        for (const kol of bildirim.kollar) blokÇöz(kol.blok, new Kapsam(kapsam));
         break;
       case "sabit":
       case "değişken":
@@ -153,20 +167,20 @@ export function isimleriÇöz(program: Program, yol = "<kaynak>"): İsimÇözüm
   }
 
   for (const bildirim of program.bildirimler) {
-    if (bildirim.tür === "yapı") {
-      if (yapılar.has(bildirim.ad))
+    if (bildirim.tür === "yapı" || bildirim.tür === "seçenek") {
+      if (tipBildirimleri.has(bildirim.ad))
         tanılar.push({
           kod: "ATA3005",
           seviye: "hata",
           yol,
           aralık: bildirim.aralık,
-          mesaj: `Yinelenen yapı tipi: '${bildirim.ad}'.`,
+          mesaj: `Yinelenen tip adı: '${bildirim.ad}'.`,
         });
-      else yapılar.set(bildirim.ad, bildirim);
+      else tipBildirimleri.set(bildirim.ad, bildirim);
     }
     if (bildirim.tür === "işlev")
       ekle(programKapsamı, { tür: "işlev", ad: bildirim.ad, bildirim, aralık: bildirim.aralık });
   }
   for (const bildirim of program.bildirimler) bildirimÇöz(bildirim, programKapsamı);
-  return { tanılar, bağlar, bildirimSembolleri, yapılar };
+  return { tanılar, bağlar, bildirimSembolleri, tipBildirimleri };
 }

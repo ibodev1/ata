@@ -13,6 +13,7 @@ import type {
   Tipİfadesi,
   İkiliİşleç,
   Atamaİşleci,
+  SeçenekDeğeriİfadesi,
 } from "./düğümler.ts";
 
 function alt(düğüm: CstNode, ad: string, sıra = 0): CstNode {
@@ -67,6 +68,16 @@ export class AstÜreticisi {
     if (düğüm.name === "değerBildirimi") return this.değerBildirimi(düğüm);
     if (düğüm.name === "blok") return this.blok(düğüm);
     if (düğüm.name === "koşul") return this.koşul(düğüm);
+    if (düğüm.name === "seçenekBildirimi")
+      return {
+        tür: "seçenek",
+        ad: token(düğüm, "ad").image,
+        aralık: this.aralık(düğüm),
+        üyeler: altlar(düğüm, "seçenekÜyesi").map((üye) => ({
+          ad: token(üye, "ad").image,
+          aralık: this.aralık(üye),
+        })),
+      };
     if (düğüm.name === "yapıBildirimi")
       return {
         tür: "yapı",
@@ -95,6 +106,28 @@ export class AstÜreticisi {
     if (düğüm.name === "ifadeBildirimi") {
       const ifade = this.ifade(alt(düğüm, "ifade"));
       const aralık = this.aralık(düğüm);
+      if (düğüm.children.eşleştirmeSonu) {
+        const son = alt(düğüm, "eşleştirmeSonu");
+        return {
+          tür: "eşleştir",
+          hedef: ifade,
+          aralık,
+          kollar: altlar(son, "eşleştirmeKolu").map((kol) => ({
+            desen: kol.children.seçenekDeğeri
+              ? this.seçenekDeğeri(alt(kol, "seçenekDeğeri"))
+              : {
+                  tür: "diğer",
+                  aralık: aralıkBul(
+                    this.kaynak,
+                    token(kol, "diğer").startOffset,
+                    token(kol, "diğer").startOffset + token(kol, "diğer").image.length,
+                  ),
+                },
+            blok: this.blok(alt(kol, "blok")),
+            aralık: this.aralık(kol),
+          })),
+        };
+      }
       if (düğüm.children.iken)
         return { tür: "iken", koşul: ifade, blok: this.blok(alt(düğüm, "blok")), aralık };
       if (düğüm.children.içindeki)
@@ -127,6 +160,15 @@ export class AstÜreticisi {
     return {
       tür: "blok",
       bildirimler: altlar(düğüm, "bildirim").map((bildirim) => this.bildirim(bildirim)),
+      aralık: this.aralık(düğüm),
+    };
+  }
+
+  private seçenekDeğeri(düğüm: CstNode): SeçenekDeğeriİfadesi {
+    return {
+      tür: "seçenek-değeri",
+      seçenekAdı: token(düğüm, "ad").image,
+      üyeAdı: token(düğüm, "üye").image,
       aralık: this.aralık(düğüm),
     };
   }
@@ -180,6 +222,8 @@ export class AstÜreticisi {
   }
 
   private ifade(düğüm: CstNode): İfade {
+    if (düğüm.name === "seçenekDeğeri") return this.seçenekDeğeri(düğüm);
+    if (düğüm.children.seçenekDeğeri) return this.seçenekDeğeri(alt(düğüm, "seçenekDeğeri"));
     const aralık = this.aralık(düğüm);
     if (düğüm.name === "ifade") {
       return düğüm.children.ad

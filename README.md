@@ -1,6 +1,6 @@
 # Ata Dil
 
-Ata, Türkçenin düşünce sırasını ve doğal yapısını sözdizimine yansıtmayı amaçlayan deneysel bir hobi ve öğrenme projesidir. Unicode/Türkçe tanımlayıcıları, statik tip denetimi, lexical kapsamı, kullanıcı işlevleri, yapıları ve listeleri olan yorumlanan bir dildir. Kaynak dosyalarının uzantısı `.ata`, mevcut sürüm **0.1.0-dev.8** (Aşama 8).
+Ata, Türkçenin düşünce sırasını ve doğal yapısını sözdizimine yansıtmayı amaçlayan deneysel bir hobi ve öğrenme projesidir. Unicode/Türkçe tanımlayıcıları, statik tip denetimi, lexical kapsamı, kullanıcı işlevleri, yapıları ve listeleri olan yorumlanan bir dildir. Kaynak dosyalarının uzantısı `.ata`, mevcut sürüm **0.1.0-dev.9** (Aşama 9).
 
 Bun 1.4.2, TypeScript 7 ve Chevrotain kullanılır. Tek paketli proje ESM biçimindedir; testler `bun:test` ile çalışır. Tek çalışma zamanı bağımlılığı Chevrotain'dir. Kod kalitesi Oxlint, biçimlendirme Oxfmt ile denetlenir; `.ata` dosyaları Oxfmt kapsamı dışındadır.
 
@@ -18,6 +18,8 @@ bun run src/cli/cli.ts denetle örnekler/güvenli-girdi.ata
 bun run src/cli/cli.ts çalıştır örnekler/güvenli-girdi.ata
 bun run src/cli/cli.ts denetle örnekler/yapılar.ata
 bun run src/cli/cli.ts çalıştır örnekler/yapılar.ata
+bun run src/cli/cli.ts denetle örnekler/eşleştirme.ata
+bun run src/cli/cli.ts çalıştır örnekler/eşleştirme.ata
 bun run typecheck
 bun run lint
 bun run format
@@ -54,6 +56,24 @@ Yapılar yalnızca üst seviyede tanımlanır; her alanın tipi ve oluşturma s�
 Alan okuma ve liste indeksleme çağrıyla zincirlenebilir: `getir()[0].adres.şehir`. İndeksleme yalnızca listelerde geçerlidir; `liste<T>[sayı]` sonucu `T` olur. İndeks güvenli tam sayı değilse `ATA5008`, negatif veya sınır dışındaysa `ATA5009` üretilir. İsteğe bağlı yapı/liste doğrudan okunamaz; yapı eşitliği, alan/indeks ataması ve yazı indeksleme desteklenmez. Değiştirilebilir yapı bağının tamamı yeniden atanabilir. Yazdırma, yerleştirme ve `yazıya`, yapıları `Kullanıcı { ad: "İbrahim" }` biçiminde gösterir.
 
 Yeni anlamsal tanılar: `ATA3004` tanımsız tip, `ATA3005` yinelenen yapı adı; `ATA4017` eksik alan, `ATA4018` yinelenen alan, `ATA4019` bulunamayan alan, `ATA4020` yapı gerektiren alan erişimi, `ATA4021` liste gerektiren indeksleme, `ATA4022` sayı olmayan indeks. Alan tipi uyuşmazlığında mevcut `ATA4001` kullanılır.
+
+## Seçenekler ve eşleştirme
+
+```ata
+seçenek Durum { açık, kapalı }
+sabit durum = Durum::açık
+
+durum eşleştir {
+    Durum::açık ise { "Açık" yazdır }
+    Durum::kapalı ise { "Kapalı" yazdır }
+}
+```
+
+Çıktı: `Açık`. `seçenek` yalnızca üst seviyede, en az bir payload taşımayan üyeyle tanımlanır; üyeler virgül veya satır sonuyla ayrılır. Yapılarla ortak tip ad alanını paylaşır. Seçenekler nominaldir: aynı üyeleri taşıyan farklı adlar farklı tiplerdir. `Tip::üye` değeri aynı biçimde yazdırılır; aynı seçenek tipinde `==` / `!=` kullanılabilir.
+
+Postfix `eşleştir` bir bildirimdir; hedefini bir kez değerlendirir ve yalnızca uygun kolu çalıştırır. Bütün üyeler kapsanmalıdır. Kalanları kapsayan `diğer ise { ... }` en fazla bir kez, son kol olarak kullanılabilir; bütün üyeler zaten kapsanmışsa reddedilir. Yinelenen veya farklı seçenek tipinden kollar hatadır. Her kol ayrı blok kapsamıdır; geçerli exhaustive eşleştirmede bütün kollar dönerse işlev dönüşü sağlanır. Optional seçenek önce `yok` testiyle daraltılmalıdır. Payload, desen bağlama ve eşleştirme ifadeleri henüz yoktur. Yapı ile birlikte kullanım için `örnekler/eşleştirme.ata` bulunur.
+
+Yeni tanılar `ATA4023`–`ATA4033`: boş/yinelenen seçenek üyesi, seçenek olmayan `::`, bilinmeyen üye, seçenek olmayan hedef, yanlış/yinelenen/eksik kol, birden fazla/son olmayan/ulaşılamaz `diğer`. Tip adı çakışması mevcut `ATA3005`, tanımsız tip `ATA3004` kullanır.
 
 ## İsteğe bağlı tip daraltma
 

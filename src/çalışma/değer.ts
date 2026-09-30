@@ -2,6 +2,7 @@ import type { KaynakAralığı } from "../kaynak/konum.ts";
 import { hata } from "./hata.ts";
 
 export type Değer =
+  | { readonly tür: "seçenek"; readonly seçenekAdı: string; readonly üyeAdı: string }
   | { readonly tür: "yapı"; readonly yapıAdı: string; readonly alanlar: ReadonlyMap<string, Değer> }
   | { readonly tür: "sayı"; readonly değer: number }
   | { readonly tür: "yazı"; readonly değer: string }
@@ -18,6 +19,8 @@ export function yazıyaDönüştür(değer: Değer, aralık: KaynakAralığı): 
 
 export function değeriGöster(değer: Değer): string {
   switch (değer.tür) {
+    case "seçenek":
+      return `${değer.seçenekAdı}::${değer.üyeAdı}`;
     case "yapı": {
       const alanlar = [...değer.alanlar].map(
         ([ad, alan]) =>

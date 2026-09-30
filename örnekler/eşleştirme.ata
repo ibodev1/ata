@@ -1,0 +1,27 @@
+seçenek Üyelik {
+    misafir
+    standart
+    yönetici
+}
+
+yapı Kullanıcı {
+    ad: yazı
+    üyelik: Üyelik
+}
+
+sabit kullanıcı = Kullanıcı {
+    ad: "İbrahim"
+    üyelik: Üyelik::yönetici
+}
+
+kullanıcı.üyelik eşleştir {
+    Üyelik::misafir ise {
+        "{kullanıcı.ad}: misafir" yazdır
+    }
+    Üyelik::standart ise {
+        "{kullanıcı.ad}: standart kullanıcı" yazdır
+    }
+    Üyelik::yönetici ise {
+        "{kullanıcı.ad}: yönetici" yazdır
+    }
+}

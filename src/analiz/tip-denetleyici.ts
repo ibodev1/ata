@@ -118,6 +118,10 @@ export function tipleriDenetle(
         döngüYazmalarınıBoz(düğüm.doğruysa);
         if (düğüm.değilse) döngüYazmalarınıBoz(düğüm.değilse);
         break;
+      case "eşleştir":
+        döngüYazmalarınıBoz(düğüm.hedef);
+        for (const kol of düğüm.kollar) döngüYazmalarınıBoz(kol.blok);
+        break;
       case "iken":
         döngüYazmalarınıBoz(düğüm.koşul);
         döngüYazmalarınıBoz(düğüm.blok);
@@ -161,6 +165,8 @@ export function tipleriDenetle(
         break;
       case "işlev":
       case "yapı":
+      case "seçenek":
+      case "seçenek-değeri":
       case "tanımlayıcı":
       case "sayı":
       case "mantık":
@@ -175,10 +181,12 @@ export function tipleriDenetle(
 
   function tipÇöz(ifade: Tipİfadesi): Tip {
     switch (ifade.tür) {
-      case "adlandırılmış-tip":
-        if (isimler.yapılar.has(ifade.ad)) return { tür: "yapı", ad: ifade.ad };
+      case "adlandırılmış-tip": {
+        const bildirim = isimler.tipBildirimleri.get(ifade.ad);
+        if (bildirim) return { tür: bildirim.tür, ad: ifade.ad };
         hata("ATA3004", `Tanımlanmamış tip: '${ifade.ad}'.`, ifade.aralık);
         return bilinmeyen;
+      }
       case "temel-tip":
         return { tür: ifade.ad };
       case "liste-tipi": {
@@ -255,9 +263,41 @@ export function tipleriDenetle(
 
   function ifadeTipi(ifade: İfade, beklenen?: Tip): Tip {
     switch (ifade.tür) {
+      case "seçenek-değeri": {
+        const bildirim = isimler.tipBildirimleri.get(ifade.seçenekAdı);
+        if (!bildirim) {
+          hata("ATA3004", `Tanımlanmamış tip: '${ifade.seçenekAdı}'.`, ifade.aralık);
+          return bilinmeyen;
+        }
+        if (bildirim.tür !== "seçenek") {
+          hata(
+            "ATA4025",
+            `'::' bir seçenek tipi gerektirir; '${bildirim.ad}' verildi.`,
+            ifade.aralık,
+          );
+          return bilinmeyen;
+        }
+        if (!bildirim.üyeler.some((üye) => üye.ad === ifade.üyeAdı)) {
+          hata(
+            "ATA4026",
+            `'${bildirim.ad}' seçeneğinde '${ifade.üyeAdı}' üyesi bulunamadı.`,
+            ifade.aralık,
+          );
+          return bilinmeyen;
+        }
+        return { tür: "seçenek", ad: bildirim.ad };
+      }
       case "yapı-oluşturma": {
         const alanlar = yapıAlanları.get(ifade.yapıAdı);
-        if (!alanlar) hata("ATA3004", `Tanımlanmamış tip: '${ifade.yapıAdı}'.`, ifade.aralık);
+        if (!alanlar) {
+          if (isimler.tipBildirimleri.has(ifade.yapıAdı))
+            hata(
+              "ATA4020",
+              `Yapı oluşturma bir yapı tipi gerektirir; '${ifade.yapıAdı}' verildi.`,
+              ifade.aralık,
+            );
+          else hata("ATA3004", `Tanımlanmamış tip: '${ifade.yapıAdı}'.`, ifade.aralık);
+        }
         const verilenler = new Set<string>();
         for (const alan of ifade.alanlar) {
           if (verilenler.has(alan.ad))
@@ -546,7 +586,84 @@ export function tipleriDenetle(
   function bildirimDenetle(bildirim: Bildirim, dönüş: Tip | null): boolean {
     switch (bildirim.tür) {
       case "yapı":
+      case "seçenek":
         break;
+      case "eşleştir": {
+        const hedef = ifadeDenetle(bildirim.hedef);
+        const seçenek = hedef.tür === "seçenek" ? isimler.tipBildirimleri.get(hedef.ad) : undefined;
+        let geçerli = seçenek?.tür === "seçenek";
+        if (hedef.tür !== "seçenek" && hedef.tür !== "bilinmeyen")
+          hata(
+            "ATA4027",
+            `Eşleştir hedefi seçenek olmalıdır; '${tipiGöster(hedef)}' verildi.`,
+            bildirim.hedef.aralık,
+          );
+        const kapsananlar = new Set<string>();
+        let diğerSayısı = 0;
+        for (const [sıra, kol] of bildirim.kollar.entries()) {
+          if (kol.desen.tür === "diğer") {
+            diğerSayısı++;
+            if (diğerSayısı > 1) {
+              hata(
+                "ATA4031",
+                "Eşleştirmede birden fazla 'diğer' kolu bulunamaz.",
+                kol.desen.aralık,
+              );
+              geçerli = false;
+            }
+            if (sıra !== bildirim.kollar.length - 1) {
+              hata("ATA4032", "'diğer' kolu son kol olmalıdır.", kol.desen.aralık);
+              geçerli = false;
+            }
+            if (
+              seçenek?.tür === "seçenek" &&
+              seçenek.üyeler.every((üye) => kapsananlar.has(üye.ad))
+            ) {
+              hata("ATA4033", "'diğer' koluna hiçbir seçenek ulaşamaz.", kol.desen.aralık);
+              geçerli = false;
+            }
+          } else {
+            const tip = ifadeDenetle(kol.desen);
+            if (tip.tür === "bilinmeyen") geçerli = false;
+            if (tip.tür === "seçenek" && hedef.tür === "seçenek") {
+              if (!tipEşit(tip, hedef)) {
+                hata(
+                  "ATA4028",
+                  `Eşleştirme kolu '${tip.ad}' yerine '${hedef.ad}' seçeneğinden olmalıdır.`,
+                  kol.desen.aralık,
+                );
+                geçerli = false;
+              } else {
+                if (kapsananlar.has(kol.desen.üyeAdı)) {
+                  hata(
+                    "ATA4029",
+                    `Yinelenen eşleştirme kolu: '${kol.desen.seçenekAdı}::${kol.desen.üyeAdı}'.`,
+                    kol.desen.aralık,
+                  );
+                  geçerli = false;
+                }
+                kapsananlar.add(kol.desen.üyeAdı);
+              }
+            }
+          }
+        }
+        const eksik =
+          seçenek?.tür === "seçenek"
+            ? seçenek.üyeler.filter((üye) => !kapsananlar.has(üye.ad))
+            : [];
+        const tam = diğerSayısı > 0 || eksik.length === 0;
+        if (seçenek?.tür === "seçenek" && !tam)
+          hata(
+            "ATA4030",
+            `Eşleştirme bütün durumları kapsamıyor. Eksik: ${eksik.map((üye) => üye.ad).join(", ")}.`,
+            bildirim.aralık,
+          );
+        const sonuçlar = bildirim.kollar.map((kol) =>
+          akışta(akış, () => blokDenetle(kol.blok, dönüş)),
+        );
+        for (const sonuç of sonuçlar) bozulmalarıUygula(sonuç.bozulanlar);
+        return geçerli && tam && sonuçlar.length > 0 && sonuçlar.every((sonuç) => sonuç.sonuç);
+      }
       case "sabit":
       case "değişken": {
         const açık = bildirim.açıkTip ? tipÇöz(bildirim.açıkTip) : undefined;
@@ -652,7 +769,18 @@ export function tipleriDenetle(
       if (alanlar.has(alan.ad)) hata("ATA4018", `Yinelenen alan: '${alan.ad}'.`, alan.aralık);
       else alanlar.set(alan.ad, tip);
     }
-    if (isimler.yapılar.get(bildirim.ad) === bildirim) yapıAlanları.set(bildirim.ad, alanlar);
+    if (isimler.tipBildirimleri.get(bildirim.ad) === bildirim)
+      yapıAlanları.set(bildirim.ad, alanlar);
+  }
+  for (const bildirim of program.bildirimler) {
+    if (bildirim.tür !== "seçenek") continue;
+    if (bildirim.üyeler.length === 0)
+      hata("ATA4023", `Seçenek '${bildirim.ad}' en az bir üye taşımalıdır.`, bildirim.aralık);
+    const üyeler = new Set<string>();
+    for (const üye of bildirim.üyeler) {
+      if (üyeler.has(üye.ad)) hata("ATA4024", `Yinelenen seçenek üyesi: '${üye.ad}'.`, üye.aralık);
+      üyeler.add(üye.ad);
+    }
   }
   for (const sembol of isimler.bildirimSembolleri.values()) {
     if (sembol.tür === "işlev")

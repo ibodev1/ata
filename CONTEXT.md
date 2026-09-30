@@ -40,6 +40,14 @@ Ata, Türkçenin doğal düşünce sırasını sözdizimine yansıtmayı amaçla
 
 **Nominal yapı tipi**: Kimliği yapı adıyla belirlenen tip; alanları aynı olan farklı yapılar birbirine atanamaz. İleri ve recursive tip referansları desteklenir.
 
+**Seçenek**: Üst seviyede tanımlanan, en az bir adlandırılmış ve payload taşımayan üyeden oluşan nominal tip. Yapılarla ortak tip ad alanını paylaşır.
+
+**Seçenek değeri**: Seçenek adı ve üye adıyla belirlenen `Tip::üye` değeri. Aynı nominal tipin üyeleri eşitlikle karşılaştırılabilir.
+
+**Eşleştirme**: Hedef seçenek değerine uygun tek kolun bloğunu çalıştıran bildirim. Her üye kapsanır; hedef bir kez değerlendirilir.
+
+**Diğer kolu**: Eşleştirmede açık kolların kapsamadığı üyeleri karşılayan son kol. Birden fazla veya ulaşılamaz diğer kolu geçersizdir.
+
 **Alan erişimi**: Yapı değerinin adlandırılmış alanını okuma. İsteğe bağlı yapı doğrudan alan erişimi sağlamaz.
 
 **Liste indeksleme**: Listenin sıfırdan başlayan sayı indeksiyle eleman okuma. İndeks güvenli tam sayı ve liste sınırları içinde olmalıdır; alan veya indeks ataması mevcut değildir.
@@ -60,7 +68,9 @@ Ata, Türkçenin doğal düşünce sırasını sözdizimine yansıtmayı amaçla
 
 ## Mevcut aşama
 
-Aşama 8 (`0.1.0-dev.8`) tamamlandı: `sayıya(yazı) → sayı?`, `mantığa(yazı) → mantık?`, `al(liste<T>, sayı) → T?`, `ilk(liste<T>) → T?` ve `son(liste<T>) → T?` mevcut. Güvenli erişim/dönüşüm başarısızlığında `yok` döner; doğrudan `[]` indeksleme strict kalır. Optional elemanlar ikinci optional katman üretmez. Kullanıcı generics sistemi yoktur.
+Aşama 9 (`0.1.0-dev.9`) tamamlandı: Nominal seçenek türleri, `Tip::üye`, exhaustive postfix `eşleştir` bildirimi ve `diğer` kolu mevcut. Seçenekler yapı/isteğe bağlı/liste tipleriyle bütünleşir; bütün kolları dönen geçerli eşleştirme kesin dönüş sağlar. Payload ve desen bağlama henüz yoktur.
+
+`sayıya(yazı) → sayı?`, `mantığa(yazı) → mantık?`, `al(liste<T>, sayı) → T?`, `ilk(liste<T>) → T?` ve `son(liste<T>) → T?` mevcut. Güvenli erişim/dönüşüm başarısızlığında `yok` döner; doğrudan `[]` indeksleme strict kalır. Optional elemanlar ikinci optional katman üretmez. Kullanıcı generics sistemi yoktur.
 
 Optional akışa duyarlı daraltma mevcut. Doğrudan adlarda `x != yok` / `x == yok`, `eğer` / `değilse`, postfix `değil`, `ve` / `veya` kısa devresi ve `iken` gövdesi desteklenir. Atama daraltmayı temel tipe sıfırlar; kullanıcı çağrısı global mutable optional daraltmaları bozar. Döngüde yazılabilen bağlar girişte sıfırlanır. Alan yolu, alias, guard-clause ve blok sonrası daraltma henüz yoktur; AST/runtime değişmez.
 
