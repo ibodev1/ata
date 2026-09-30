@@ -1,6 +1,7 @@
 import { kaynakOku } from "../kaynak/kaynak.ts";
 import type { Kaynak } from "../kaynak/kaynak.ts";
 import { ayrıştır } from "../ayrıştırıcı/ayrıştırıcı.ts";
+import { analizEt } from "../analiz/analiz.ts";
 import { tanıyıGöster } from "../tanılama/göster.ts";
 import { version as sürüm } from "../../package.json";
 
@@ -10,7 +11,7 @@ Kullanım:
   ata <komut> [seçenekler]
 
 Komutlar:
-  çalıştır <dosya>   Ata kaynağını ayrıştır (yorumlayıcı henüz yok)
+  çalıştır <dosya>   Ata kaynağını denetle (yorumlayıcı henüz yok)
   sürüm              Ata Dil sürümünü göster
   yardım             Bu yardımı göster`;
 
@@ -48,8 +49,11 @@ async function cli(argümanlar: readonly string[]): Promise<number> {
   const sonuç = ayrıştır(kaynak);
   for (const tanı of sonuç.tanılar) console.error(tanıyıGöster(kaynak, tanı));
   if (sonuç.tanılar.some((tanı) => tanı.seviye === "hata")) return 1;
+  const analiz = analizEt(sonuç.program!, kaynak.yol);
+  for (const tanı of analiz.tanılar) console.error(tanıyıGöster(kaynak, tanı));
+  if (analiz.tanılar.some((tanı) => tanı.seviye === "hata")) return 1;
   console.log(
-    `Kaynak başarıyla ayrıştırıldı: ${sonuç.program!.bildirimler.length} üst seviye bildirim.`,
+    `Kaynak başarıyla denetlendi: ${sonuç.program!.bildirimler.length} üst seviye bildirim.`,
   );
   console.log("Yorumlayıcı henüz uygulanmadı.");
   return 0;

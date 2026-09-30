@@ -23,3 +23,7 @@ export type {
   İkiliİşleç,
   Atamaİşleci,
 } from "./ast/düğümler.ts";
+export { analizEt } from "./analiz/analiz.ts";
+export type { TipDenetlemeSonucu } from "./analiz/tip-denetleyici.ts";
+export type { Tip, İşlevİmzası } from "./analiz/tipler.ts";
+export type { Sembol } from "./analiz/kapsam.ts";
