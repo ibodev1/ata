@@ -1,6 +1,13 @@
 import type { KaynakAralığı } from "../kaynak/konum.ts";
 
-type ÇalışmaTanıKodu = "ATA5001" | "ATA5002" | "ATA5003" | "ATA5004" | "ATA5005" | "ATA5006";
+type ÇalışmaTanıKodu =
+  | "ATA5001"
+  | "ATA5002"
+  | "ATA5003"
+  | "ATA5004"
+  | "ATA5005"
+  | "ATA5006"
+  | "ATA5007";
 
 // Yalnızca beklenen çalışma zamanı tanıları API sınırında yakalanır.
 export class ÇalışmaZamanıHatası extends Error {

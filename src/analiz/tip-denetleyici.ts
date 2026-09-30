@@ -5,6 +5,11 @@ import type { Sembol } from "./kapsam.ts";
 import type { İsimÇözümlemeSonucu } from "./isim-çözümleyici.ts";
 import type { Tip, İşlevİmzası } from "./tipler.ts";
 import { atanabilir, tipEşit, tipiGöster } from "./tipler.ts";
+import {
+  argümanSayısıUygun,
+  parametreKabulEder,
+  parametreyiGöster,
+} from "../standart/yerleşikler.ts";
 
 const bilinmeyen: Tip = { tür: "bilinmeyen" };
 const sayı: Tip = { tür: "sayı" };
@@ -120,7 +125,7 @@ export function tipleriDenetle(
         return { tür: ifade.tür };
       case "tanımlayıcı": {
         const sembol = isimler.bağlar.get(ifade);
-        if (sembol?.tür === "işlev") {
+        if (sembol?.tür === "işlev" || sembol?.tür === "yerleşik") {
           hata(
             "ATA4010",
             `İşlev '${sembol.ad}' yalnızca çağrı hedefi olarak kullanılabilir.`,
@@ -190,6 +195,37 @@ export function tipleriDenetle(
       case "çağrı": {
         const sembol =
           ifade.çağrılan.tür === "tanımlayıcı" ? isimler.bağlar.get(ifade.çağrılan) : undefined;
+        if (sembol?.tür === "yerleşik") {
+          const işlev = sembol.işlev;
+          if (!argümanSayısıUygun(işlev, ifade.argümanlar.length)) {
+            const enAz = işlev.enAzArgüman ?? işlev.parametreler.length;
+            const beklenenSayı =
+              enAz === işlev.parametreler.length
+                ? String(enAz)
+                : `${enAz} veya ${işlev.parametreler.length}`;
+            hata(
+              "ATA4004",
+              `'${işlev.ad}' işlevi ${beklenenSayı} argüman bekliyor; ${ifade.argümanlar.length} verildi.`,
+              ifade.aralık,
+            );
+          }
+          ifade.argümanlar.forEach((argüman, sıra) => {
+            const kural = işlev.parametreler[sıra];
+            // Eleman tipi uzunluk/gösterim için önemsizdir; yalnızca boş literal bağlam alır.
+            const bağlam: Tip | undefined =
+              kural && kural !== "yazı" && argüman.tür === "liste" && argüman.elemanlar.length === 0
+                ? { tür: "liste", eleman: bilinmeyen }
+                : undefined;
+            const verilen = ifadeDenetle(argüman, bağlam);
+            if (kural && !parametreKabulEder(kural, verilen))
+              hata(
+                "ATA4005",
+                `'${işlev.ad}' işlevinin ${sıra + 1}. argümanı '${parametreyiGöster(kural)}' olmalıdır; '${tipiGöster(verilen)}' verildi.`,
+                argüman.aralık,
+              );
+          });
+          return işlev.dönüş;
+        }
         const imza = sembol?.tür === "işlev" ? işlevİmzaları.get(sembol) : undefined;
         if (!imza) {
           const hedef = ifadeDenetle(ifade.çağrılan);

@@ -5,6 +5,7 @@ import { analizEt } from "../analiz/analiz.ts";
 import { yorumla } from "../çalışma/yorumlayıcı.ts";
 import { tanıyıGöster } from "../tanılama/göster.ts";
 import { version as sürüm } from "../../package.json";
+import { girdiOku } from "./girdi.ts";
 
 const yardım = `Ata Dil
 
@@ -13,6 +14,7 @@ Kullanım:
 
 Komutlar:
   çalıştır <dosya>   Ata programını denetle ve çalıştır
+  denetle <dosya>    Ata programını çalıştırmadan denetle
   sürüm              Ata Dil sürümünü göster
   yardım             Bu yardımı göster`;
 
@@ -26,12 +28,12 @@ async function cli(argümanlar: readonly string[]): Promise<number> {
     console.log(komut === "sürüm" ? `Ata Dil ${sürüm}` : yardım);
     return 0;
   }
-  if (komut !== "çalıştır") {
+  if (komut !== "çalıştır" && komut !== "denetle") {
     console.error(`Bilinmeyen komut: '${komut}'. Kullanım için 'ata yardım' yazın.`);
     return 1;
   }
   if (argümanlar.length !== 2 || !yol) {
-    console.error("'çalıştır' komutu için tek bir dosya yolu gereklidir.");
+    console.error(`'${komut}' komutu için tek bir dosya yolu gereklidir.`);
     return 1;
   }
   if (!yol.endsWith(".ata")) {
@@ -53,9 +55,14 @@ async function cli(argümanlar: readonly string[]): Promise<number> {
   const analiz = analizEt(sonuç.program!, kaynak.yol);
   for (const tanı of analiz.tanılar) console.error(tanıyıGöster(kaynak, tanı));
   if (analiz.tanılar.some((tanı) => tanı.seviye === "hata")) return 1;
+  if (komut === "denetle") {
+    console.log("Denetim başarılı.");
+    return 0;
+  }
   const çalışma = yorumla(sonuç.program!, {
     yol: kaynak.yol,
     çıktıYaz: (metin) => console.log(metin),
+    girdiOku,
   });
   for (const tanı of çalışma.tanılar) console.error(tanıyıGöster(kaynak, tanı));
   return çalışma.tanılar.some((tanı) => tanı.seviye === "hata") ? 1 : 0;

@@ -1,15 +1,17 @@
 import type { Program, Bildirim, İfade, Blok } from "../ast/düğümler.ts";
-import type { KaynakAralığı } from "../kaynak/konum.ts";
 import type { Tanı } from "../tanılama/tanı.ts";
 import type { Değer } from "./değer.ts";
-import { değeriGöster, hiç } from "./değer.ts";
+import { yazıyaDönüştür, hiç } from "./değer.ts";
 import { Ortam } from "./ortam.ts";
 import { ÇalışmaZamanıHatası, hata } from "./hata.ts";
 import { sayıSonucu, mantıkAl, ikiliUygula } from "./işlemler.ts";
+import { yerleşikler, yerleşiğiÇağır } from "../standart/yerleşikler.ts";
+import type { GirdiOku } from "../standart/yerleşikler.ts";
 
 export interface YorumlamaSeçenekleri {
   readonly yol?: string;
   readonly çıktıYaz: (metin: string) => void;
+  readonly girdiOku?: GirdiOku;
 }
 
 export interface YorumlamaSonucu {
@@ -18,11 +20,6 @@ export interface YorumlamaSonucu {
 
 type Akış = { readonly tür: "devam" } | { readonly tür: "dönüş"; readonly değer: Değer };
 const devam: Akış = { tür: "devam" };
-
-function göster(değer: Değer, aralık: KaynakAralığı): string {
-  if (değer.tür === "hiç") return hata("ATA5005", "'hiç' değeri yazıya dönüştürülemez.", aralık);
-  return değeriGöster(değer);
-}
 
 export function yorumla(program: Program, seçenekler: YorumlamaSeçenekleri): YorumlamaSonucu {
   let çağrıDerinliği = 0;
@@ -41,7 +38,7 @@ export function yorumla(program: Program, seçenekler: YorumlamaSeçenekleri): Y
             .map((parça) =>
               parça.tür === "metin"
                 ? parça.değer
-                : göster(değerlendir(parça.ifade, ortam), parça.ifade.aralık),
+                : yazıyaDönüştür(değerlendir(parça.ifade, ortam), parça.ifade.aralık),
             )
             .join(""),
         };
@@ -94,6 +91,13 @@ export function yorumla(program: Program, seçenekler: YorumlamaSeçenekleri): Y
         if (ifade.çağrılan.tür !== "tanımlayıcı")
           return hata("ATA5005", "Çağrı hedefi işlev adı olmalıdır.", ifade.çağrılan.aralık);
         const bağ = ortam.bul(ifade.çağrılan.ad, ifade.çağrılan.aralık);
+        if (bağ.tür === "yerleşik")
+          return yerleşiğiÇağır(
+            bağ.işlev,
+            ifade.argümanlar.map((argüman) => değerlendir(argüman, ortam)),
+            seçenekler,
+            ifade.aralık,
+          );
         if (bağ.tür !== "işlev")
           return hata("ATA5005", "Çağrı hedefi bir işlev değildir.", ifade.çağrılan.aralık);
         if (ifade.argümanlar.length !== bağ.bildirim.parametreler.length)
@@ -154,7 +158,9 @@ export function yorumla(program: Program, seçenekler: YorumlamaSeçenekleri): Y
         break;
       }
       case "yazdır":
-        seçenekler.çıktıYaz(göster(değerlendir(bildirim.ifade, ortam), bildirim.ifade.aralık));
+        seçenekler.çıktıYaz(
+          yazıyaDönüştür(değerlendir(bildirim.ifade, ortam), bildirim.ifade.aralık),
+        );
         break;
       case "ifade-bildirimi":
         değerlendir(bildirim.ifade, ortam);
@@ -201,6 +207,8 @@ export function yorumla(program: Program, seçenekler: YorumlamaSeçenekleri): Y
 
   try {
     const küresel = new Ortam();
+    for (const işlev of yerleşikler)
+      küresel.tanımla(işlev.ad, { tür: "yerleşik", işlev }, program.aralık);
     for (const bildirim of program.bildirimler) {
       if (bildirim.tür === "işlev")
         küresel.tanımla(bildirim.ad, { tür: "işlev", bildirim, ortam: küresel }, bildirim.aralık);

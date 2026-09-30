@@ -1,5 +1,6 @@
 import type { DeğerBildirimi, İşlevBildirimi, Parametre, ListeDöngüsü } from "../ast/düğümler.ts";
 import type { KaynakAralığı } from "../kaynak/konum.ts";
+import type { Yerleşikİşlev } from "../standart/yerleşikler.ts";
 
 interface SembolTemeli {
   readonly ad: string;
@@ -14,7 +15,8 @@ export type Sembol =
     })
   | (SembolTemeli & { readonly tür: "parametre"; readonly bildirim: Parametre })
   | (SembolTemeli & { readonly tür: "döngü"; readonly bildirim: ListeDöngüsü })
-  | (SembolTemeli & { readonly tür: "işlev"; readonly bildirim: İşlevBildirimi });
+  | (SembolTemeli & { readonly tür: "işlev"; readonly bildirim: İşlevBildirimi })
+  | { readonly tür: "yerleşik"; readonly ad: string; readonly işlev: Yerleşikİşlev };
 
 export class Kapsam {
   private readonly semboller = new Map<string, Sembol>();

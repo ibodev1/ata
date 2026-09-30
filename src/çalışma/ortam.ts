@@ -2,10 +2,12 @@ import type { İşlevBildirimi } from "../ast/düğümler.ts";
 import type { KaynakAralığı } from "../kaynak/konum.ts";
 import type { Değer } from "./değer.ts";
 import { hata } from "./hata.ts";
+import type { Yerleşikİşlev } from "../standart/yerleşikler.ts";
 
 export type Bağ =
   | { readonly tür: "değer"; değer: Değer; readonly değiştirilebilir: boolean }
-  | { readonly tür: "işlev"; readonly bildirim: İşlevBildirimi; readonly ortam: Ortam };
+  | { readonly tür: "işlev"; readonly bildirim: İşlevBildirimi; readonly ortam: Ortam }
+  | { readonly tür: "yerleşik"; readonly işlev: Yerleşikİşlev };
 
 export class Ortam {
   private readonly bağlar = new Map<string, Bağ>();

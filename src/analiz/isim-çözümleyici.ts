@@ -2,6 +2,7 @@ import type { Program, Bildirim, İfade, Parametre, Blok } from "../ast/düğüm
 import type { Tanı } from "../tanılama/tanı.ts";
 import { Kapsam } from "./kapsam.ts";
 import type { Sembol } from "./kapsam.ts";
+import { yerleşikler } from "../standart/yerleşikler.ts";
 
 export interface İsimÇözümlemeSonucu {
   readonly tanılar: readonly Tanı[];
@@ -14,8 +15,9 @@ export function isimleriÇöz(program: Program, yol = "<kaynak>"): İsimÇözüm
   const bağlar = new Map<İfade, Sembol>();
   const bildirimSembolleri = new Map<Bildirim | Parametre, Sembol>();
   const programKapsamı = new Kapsam();
+  for (const işlev of yerleşikler) programKapsamı.ekle({ tür: "yerleşik", ad: işlev.ad, işlev });
 
-  function ekle(kapsam: Kapsam, sembol: Sembol): void {
+  function ekle(kapsam: Kapsam, sembol: Exclude<Sembol, { tür: "yerleşik" }>): void {
     bildirimSembolleri.set(sembol.bildirim, sembol);
     if (!kapsam.ekle(sembol))
       tanılar.push({

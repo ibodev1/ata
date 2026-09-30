@@ -1,6 +1,6 @@
 # Ata Dil
 
-Ata, Türkçenin düşünce sırasını ve doğal yapısını sözdizimine yansıtmayı amaçlayan deneysel bir hobi ve öğrenme projesidir. Unicode/Türkçe tanımlayıcıları, statik tip denetimi, lexical kapsamı, kullanıcı işlevleri ve listeleri olan yorumlanan bir dildir. Kaynak dosyalarının uzantısı `.ata`, mevcut sürüm **0.1.0-dev.4** (Aşama 4).
+Ata, Türkçenin düşünce sırasını ve doğal yapısını sözdizimine yansıtmayı amaçlayan deneysel bir hobi ve öğrenme projesidir. Unicode/Türkçe tanımlayıcıları, statik tip denetimi, lexical kapsamı, kullanıcı işlevleri ve listeleri olan yorumlanan bir dildir. Kaynak dosyalarının uzantısı `.ata`, mevcut sürüm **0.1.0-dev.5** (Aşama 5).
 
 Bun 1.4.2, TypeScript 7 ve Chevrotain kullanılır. Tek paketli proje ESM biçimindedir; testler `bun:test` ile çalışır. Tek çalışma zamanı bağımlılığı Chevrotain'dir. Kod kalitesi Oxlint, biçimlendirme Oxfmt ile denetlenir; `.ata` dosyaları Oxfmt kapsamı dışındadır.
 
@@ -10,8 +10,10 @@ Bun 1.4.2, TypeScript 7 ve Chevrotain kullanılır. Tek paketli proje ESM biçim
 bun install
 bun run dev yardım
 bun run src/cli/cli.ts sürüm
+bun run src/cli/cli.ts denetle örnekler/merhaba.ata
 bun run src/cli/cli.ts çalıştır örnekler/merhaba.ata
 bun run src/cli/cli.ts çalıştır örnekler/temeller.ata
+bun run src/cli/cli.ts çalıştır örnekler/girdi.ata
 bun run typecheck
 bun run lint
 bun run format
@@ -28,6 +30,35 @@ sabit ad = "Dünya"
 ```
 
 `ata çalıştır merhaba.ata` mantığında `çalıştır` kaynağı sözcüklere ayırır, ayrıştırır, AST oluşturur, isim ve tip denetimini yapar; tanı yoksa tree-walk yorumlayıcıyla yürütür. Geliştirme ortamında `bun run dev çalıştır örnekler/merhaba.ata` kullanılır. Başarıda yalnızca program çıktısı gösterilir; çıkış kodu 0, hata durumunda Türkçe tanılarla 1 olur. Yukarıdaki programın çıktısı `Merhaba Dünya!` olur.
+
+`ata denetle dosya.ata` aynı kaynak → ayrıştırma → analiz hattını kullanır ve yorumlayıcıyı çalıştırmaz. Başarıda `Denetim başarılı.` ve çıkış kodu 0; ön yüz hatalarında Türkçe tanılar ve çıkış kodu 1 üretir. Örneğin `1 / 0 yazdır` denetimden geçer, çalıştırmada `ATA5001` verir.
+
+## Temel standart işlevler
+
+Yerleşikler normal tanımlayıcılardır; global kapsamda hazır bulunurlar, aynı kapsamda yeniden tanımlanamazlar; iç kapsamda gölgelenebilirler. Kullanıcı işlevleri gibi yalnızca çağrı hedefi olarak kullanılabilirler.
+
+| İşlev                             | Kabul edilen argümanlar              | Sonuç    |
+| --------------------------------- | ------------------------------------ | -------- |
+| `girdi`                           | sıfır argüman veya bir `yazı` istemi | `yazı`   |
+| `uzunluk`                         | `yazı` veya `liste<T>`               | `sayı`   |
+| `yazıya`                          | `hiç` dışındaki kullanıcı değeri     | `yazı`   |
+| `büyük_harf`, `küçük_harf`        | `yazı`                               | `yazı`   |
+| `kırp`                            | `yazı`                               | `yazı`   |
+| `içerir`, `başlar_mı`, `biter_mi` | iki `yazı`                           | `mantık` |
+
+`girdi("Adınız: ")` senkron çalışır; CLI istemi aynen gösterip stdin'den UTF-8 satır okur (LF/CRLF). Bun `prompt` isteme ek boşluk kattığından küçük bir senkron okuyucu kullanılır. Interpreter testlerinde `yorumla(program, { çıktıYaz, girdiOku: (istem) => "İbrahim" })` ile girdi enjekte edilir. Girdi sağlayıcısı yoksa, `null` döndürürse veya hata atarsa `ATA5007: Girdi okunamadı.` üretilir; boş yazı geçerli girdidir.
+
+`uzunluk` yazılarda Unicode code point sayar: `uzunluk("😊")` sonucu 1'dir; grapheme cluster sayımı yapmaz. Listelerde eleman sayısını verir; `uzunluk([])` geçerlidir. İsteğe bağlı yazı/liste doğrudan kabul edilmez. `yazıya`, yazdırma ve yerleştirmeyle aynı gösterimi kullanır; isteğe bağlı değerler, `yok` ve listeler desteklenir, yazı aynen döner.
+
+Harf dönüşümleri açık `tr-TR` locale kullanır: `büyük_harf("istanbul")` → `İSTANBUL`, `küçük_harf("IĞDIR")` → `ığdır`. `kırp` baştaki/sondaki Unicode boşlukları kaldırır. Arama işlevleri büyük/küçük harfe duyarlıdır.
+
+```ata
+sabit ad = büyük_harf("ata")
+sabit boyut = uzunluk(ad)
+"{ad}: {boyut}" yazdır
+```
+
+Çıktı: `ATA: 3`. Etkileşimli kullanım için `örnekler/girdi.ata` bulunur.
 
 ## Kaynak ve konumlar
 
@@ -61,7 +92,7 @@ Değer döndüren işlevlerde doğrudan dönüş, iki kolu da dönen koşul ve b
 
 `yorumla(program, { yol, çıktıYaz })` analizden geçen AST'yi yürütür ve `{ tanılar }` döndürür; çıktı callback üzerinden iletilir. Her çalıştırma bağımsız lexical ortam kurar. İşlevler küresel ortama bağlanır, çağrılar değiştirilemez parametrelerle yeni ortam açar. `döndür` blok ve döngüler boyunca ayrı akış sonucu olarak taşınır. İlk çalışma zamanı hatasında yürütme durur; önceki çıktılar korunur.
 
-Çalışma zamanı tanıları: `ATA5001` sıfıra bölme, `ATA5002` sıfıra göre kalan, `ATA5003` sonlu olmayan sonuç, `ATA5004` bağlama/ortam sorunu, `ATA5005` beklenmeyen değer veya yürütme durumu, `ATA5006` çağrı derinliği sınırı. JavaScript yığın taşmasını önlemek için en fazla 256 etkin çağrı değerlendirmesi desteklenir. Beklenen çalışma zamanı hataları tanıya çevrilir; beklenmeyen programlama veya çıktı callback hataları yutulmaz.
+Çalışma zamanı tanıları: `ATA5001` sıfıra bölme, `ATA5002` sıfıra göre kalan, `ATA5003` sonlu olmayan sonuç, `ATA5004` bağlama/ortam sorunu, `ATA5005` beklenmeyen değer veya yürütme durumu, `ATA5006` çağrı derinliği sınırı, `ATA5007` okunamayan girdi. JavaScript yığın taşmasını önlemek için en fazla 256 etkin çağrı değerlendirmesi desteklenir. Beklenen çalışma zamanı hataları tanıya çevrilir; beklenmeyen programlama veya çıktı callback hataları yutulmaz.
 
 ## Commit düzeni
 

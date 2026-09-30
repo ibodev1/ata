@@ -1,3 +1,6 @@
+import type { KaynakAralığı } from "../kaynak/konum.ts";
+import { hata } from "./hata.ts";
+
 export type Değer =
   | { readonly tür: "sayı"; readonly değer: number }
   | { readonly tür: "yazı"; readonly değer: string }
@@ -6,6 +9,11 @@ export type Değer =
   | { readonly tür: "liste"; readonly elemanlar: readonly Değer[] };
 
 export const hiç: Değer = { tür: "hiç" };
+
+export function yazıyaDönüştür(değer: Değer, aralık: KaynakAralığı): string {
+  if (değer.tür === "hiç") return hata("ATA5005", "'hiç' değeri yazıya dönüştürülemez.", aralık);
+  return değeriGöster(değer);
+}
 
 export function değeriGöster(değer: Değer): string {
   switch (değer.tür) {

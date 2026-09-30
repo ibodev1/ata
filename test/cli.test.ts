@@ -14,7 +14,7 @@ function komutÇalıştır(...argümanlar: string[]) {
 }
 
 test("CLI sürümü gösterir", () => {
-  expect(komutÇalıştır("sürüm")).toEqual({ kod: 0, çıktı: "Ata Dil 0.1.0-dev.4\n", hata: "" });
+  expect(komutÇalıştır("sürüm")).toEqual({ kod: 0, çıktı: "Ata Dil 0.1.0-dev.5\n", hata: "" });
 });
 
 test("CLI yardımı ve argümansız kullanım Türkçedir", () => {
@@ -23,7 +23,106 @@ test("CLI yardımı ve argümansız kullanım Türkçedir", () => {
     expect(sonuç.kod).toBe(0);
     expect(sonuç.çıktı).toContain("Kullanım:");
     expect(sonuç.çıktı).toContain("çalıştır <dosya>");
+    expect(sonuç.çıktı).toContain("denetle <dosya>");
   }
+});
+
+test("CLI denetle örneği çalıştırmadan başarılı denetim bildirir", () => {
+  expect(komutÇalıştır("denetle", örnekYolu)).toEqual({
+    kod: 0,
+    çıktı: "Denetim başarılı.\n",
+    hata: "",
+  });
+});
+
+test.each([
+  { metin: "1 / 0 yazdır", kod: undefined },
+  { metin: 'girdi("Ad: ") yazdır', kod: undefined },
+  { metin: "sabit a = @", kod: "ATA1001" },
+  { metin: "eğer doğru {}", kod: "ATA2001" },
+  { metin: "olmayan yazdır", kod: "ATA3001" },
+  { metin: "büyük_harf(42)", kod: "ATA4005" },
+])("CLI denetle ortak ön yüzü kullanır, runtime'a girmez: %j", async ({ metin, kod }) => {
+  const yol = `${örnekYolu}.${crypto.randomUUID()}.ata`;
+  try {
+    await Bun.write(yol, metin);
+    const sonuç = komutÇalıştır("denetle", yol);
+    expect(sonuç.kod).toBe(kod ? 1 : 0);
+    expect(sonuç.çıktı).toBe(kod ? "" : "Denetim başarılı.\n");
+    if (kod) expect(sonuç.hata).toContain(`${kod} (hata):`);
+    else expect(sonuç.hata).toBe("");
+  } finally {
+    await Bun.file(yol).delete();
+  }
+});
+
+test.each([
+  { argümanlar: ["denetle"] },
+  { argümanlar: ["denetle", "bir.ata", "iki.ata"] },
+  { argümanlar: ["denetle", "örnek.txt"] },
+  { argümanlar: ["denetle", "bulunmayan.ata"] },
+])("CLI denetle yanlış çağrıyı reddeder: %j", ({ argümanlar }) => {
+  const sonuç = komutÇalıştır(...argümanlar);
+  expect(sonuç.kod).toBe(1);
+  expect(sonuç.çıktı).toBe("");
+  expect(sonuç.hata.length).toBeGreaterThan(0);
+});
+
+test("CLI yerleşik çağrı zincirini yürütür", async () => {
+  const yol = `${örnekYolu}.${crypto.randomUUID()}.ata`;
+  try {
+    await Bun.write(
+      yol,
+      'sabit ad = büyük_harf("ata"); sabit boyut = uzunluk(ad); "{ad}: {boyut}" yazdır',
+    );
+    expect(komutÇalıştır("çalıştır", yol)).toEqual({ kod: 0, çıktı: "ATA: 3\n", hata: "" });
+  } finally {
+    await Bun.file(yol).delete();
+  }
+});
+
+test("CLI istemsiz ve ardışık girdilerde satırları karıştırmaz", async () => {
+  const yol = `${örnekYolu}.${crypto.randomUUID()}.ata`;
+  try {
+    await Bun.write(yol, 'girdi() yazdır; girdi("İkinci:") yazdır');
+    const sonuç = Bun.spawnSync([process.execPath, "run", cliYolu, "çalıştır", yol], {
+      stdin: Buffer.from("😊\r\nAta\n"),
+    });
+    expect(sonuç.exitCode).toBe(0);
+    expect(sonuç.stdout.toString()).toBe("😊\nİkinci:Ata\n");
+    expect(sonuç.stderr.toString()).toBe("");
+  } finally {
+    await Bun.file(yol).delete();
+  }
+});
+
+test("CLI bozuk UTF-8 girdisini ham exception sızdırmadan tanılar", () => {
+  const yol = Bun.file(new URL("../örnekler/girdi.ata", import.meta.url)).name!;
+  const sonuç = Bun.spawnSync([process.execPath, "run", cliYolu, "çalıştır", yol], {
+    stdin: new Uint8Array([0xc3, 0x28, 10]),
+  });
+  expect(sonuç.exitCode).toBe(1);
+  expect(sonuç.stderr.toString()).toContain("ATA5007 (hata): Girdi okunamadı.");
+  expect(sonuç.stderr.toString()).not.toContain("TypeError");
+});
+
+test.each([
+  { girdi: "İbrahim\n", kod: 0, çıktı: "Adınız: Merhaba İBRAHİM!\n" },
+  { girdi: "  ısparta  \r\n", kod: 0, çıktı: "Adınız: Merhaba ISPARTA!\n" },
+  { girdi: "\n", kod: 0, çıktı: "Adınız: Merhaba !\n" },
+  { girdi: "Ata", kod: 0, çıktı: "Adınız: Merhaba ATA!\n" },
+  { girdi: "", kod: 1, çıktı: "Adınız: " },
+])("CLI istemi aynen gösterir, UTF-8 satırı okur ve EOF'u tanılar: %j", ({ girdi, kod, çıktı }) => {
+  const yol = Bun.file(new URL("../örnekler/girdi.ata", import.meta.url)).name!;
+  const sonuç = Bun.spawnSync([process.execPath, "run", cliYolu, "çalıştır", yol], {
+    stdin: Buffer.from(girdi),
+  });
+  expect(sonuç.exitCode).toBe(kod);
+  expect(sonuç.stdout.toString()).toBe(çıktı);
+  if (kod) {
+    expect(sonuç.stderr.toString()).toContain("ATA5007 (hata): Girdi okunamadı.");
+    expect(sonuç.stderr.toString()).not.toContain("Error:");
+  } else expect(sonuç.stderr.toString()).toBe("");
 });
 
 test("CLI örnek programı yürütür ve yalnızca gerçek çıktısını gösterir", () => {

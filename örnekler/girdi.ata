@@ -1,0 +1,2 @@
+sabit ad = girdi("Adınız: ")
+"Merhaba {büyük_harf(kırp(ad))}!" yazdır
