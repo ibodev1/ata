@@ -28,6 +28,16 @@ Ata, Türkçenin doğal düşünce sırasını sözdizimine yansıtmayı amaçla
 
 **Tip**: Bir ifadenin statik değer sınıfı; tip ifadesinden ayrı anlamsal model.
 
+**Yapı**: Adı ve zorunlu tipli alanları olan kullanıcı veri tipi. Alanları oluşturulduktan sonra değiştirilemez; değiştirilebilir bir bağın tamamı yeniden atanabilir.
+
+**Tip ad alanı**: Üst seviye yapı adlarının değer adlarından bağımsız çözüldüğü alan. Aynı ad iki ad alanında bulunabilir.
+
+**Nominal yapı tipi**: Kimliği yapı adıyla belirlenen tip; alanları aynı olan farklı yapılar birbirine atanamaz. İleri ve recursive tip referansları desteklenir.
+
+**Alan erişimi**: Yapı değerinin adlandırılmış alanını okuma. İsteğe bağlı yapı doğrudan alan erişimi sağlamaz.
+
+**Liste indeksleme**: Listenin sıfırdan başlayan sayı indeksiyle eleman okuma. İndeks güvenli tam sayı ve liste sınırları içinde olmalıdır; alan veya indeks ataması mevcut değildir.
+
 **Değer**: Yürütme sırasında üretilen Ata sayısı, yazısı, mantığı, listesi, `yok` veya `hiç` sonucu. `hiç` değer döndürmeyen işlev sonucu; `yok` kullanıcıya görünen eksik değerdir.
 
 **Ortam**: Çalışma zamanı adlarını değer ve değiştirilebilirlik bilgisiyle tutan lexical bağlama alanı.
@@ -40,7 +50,7 @@ Ata, Türkçenin doğal düşünce sırasını sözdizimine yansıtmayı amaçla
 
 ## Mevcut aşama
 
-Aşama 5 (`0.1.0-dev.5`) tamamlandı: Temel yerleşik işlev sistemi, `girdi`, `uzunluk`/`yazıya` ve Türkçe yazı yardımcıları mevcut. Harf dönüşümleri açık `tr-TR` locale kullanır; yazı uzunluğu Unicode code point sayısıdır. Yazdırma, yerleştirme ve `yazıya` ortak değer gösterimini kullanır. `ata denetle` ortak ön yüz hattını yürütür ve runtime'a girmeden denetim sonucunu bildirir.
+Aşama 6 (`0.1.0-dev.6`) tamamlandı: Nominal yapı tipleri, yapı oluşturma, alan erişimi ve liste indeksleme mevcut. Alan/liste mutasyonu henüz yok. Temel yerleşik işlev sistemi, senkron `girdi`, Türkçe yazı yardımcıları ve `ata denetle` korunur. Yazdırma, yerleştirme ve `yazıya` yapı değerleri dahil ortak gösterimi kullanır.
 
 Ön yüz ve statik analizden sonra senkron tree-walk yorumlayıcı program yürütür; `ata çalıştır` gerçek çıktı üretir. Lexical ortamlar, işlev çağrıları/özyineleme, döngüler, kısa devreli mantık ve yazı yerleştirme mevcut. Dönüş ayrı akış sonucudur; çalışma zamanı tanıları `ATA5xxx` kullanır. Çağrı derinliği 256 ile sınırlıdır.
 

@@ -20,6 +20,7 @@ export interface TipDenetlemeSonucu {
   readonly ifadeTipleri: ReadonlyMap<İfade, Tip>;
   readonly sembolTipleri: ReadonlyMap<Sembol, Tip>;
   readonly işlevİmzaları: ReadonlyMap<Sembol, İşlevİmzası>;
+  readonly yapıAlanları: ReadonlyMap<string, ReadonlyMap<string, Tip>>;
 }
 
 export function tipleriDenetle(
@@ -31,6 +32,7 @@ export function tipleriDenetle(
   const ifadeTipleri = new Map<İfade, Tip>();
   const sembolTipleri = new Map<Sembol, Tip>();
   const işlevİmzaları = new Map<Sembol, İşlevİmzası>();
+  const yapıAlanları = new Map<string, ReadonlyMap<string, Tip>>();
 
   function hata(kod: Tanı["kod"], mesaj: string, aralık: KaynakAralığı): void {
     tanılar.push({ kod, seviye: "hata", mesaj, aralık, yol });
@@ -38,10 +40,16 @@ export function tipleriDenetle(
 
   function tipÇöz(ifade: Tipİfadesi): Tip {
     switch (ifade.tür) {
+      case "adlandırılmış-tip":
+        if (isimler.yapılar.has(ifade.ad)) return { tür: "yapı", ad: ifade.ad };
+        hata("ATA3004", `Tanımlanmamış tip: '${ifade.ad}'.`, ifade.aralık);
+        return bilinmeyen;
       case "temel-tip":
         return { tür: ifade.ad };
-      case "liste-tipi":
-        return { tür: "liste", eleman: tipÇöz(ifade.eleman) };
+      case "liste-tipi": {
+        const eleman = tipÇöz(ifade.eleman);
+        return eleman.tür === "bilinmeyen" ? bilinmeyen : { tür: "liste", eleman };
+      }
       case "isteğe-bağlı-tip": {
         const temel = tipÇöz(ifade.temel);
         if (temel.tür === "isteğe-bağlı") {
@@ -79,6 +87,8 @@ export function tipleriDenetle(
         yokKarşılaştırması ||
         (temelSol.tür !== "liste" &&
           temelSağ.tür !== "liste" &&
+          temelSol.tür !== "yapı" &&
+          temelSağ.tür !== "yapı" &&
           sol.tür !== "hiç" &&
           sağ.tür !== "hiç" &&
           (atanabilir(sol, sağ) || atanabilir(sağ, sol)))
@@ -107,6 +117,64 @@ export function tipleriDenetle(
 
   function ifadeTipi(ifade: İfade, beklenen?: Tip): Tip {
     switch (ifade.tür) {
+      case "yapı-oluşturma": {
+        const alanlar = yapıAlanları.get(ifade.yapıAdı);
+        if (!alanlar) hata("ATA3004", `Tanımlanmamış tip: '${ifade.yapıAdı}'.`, ifade.aralık);
+        const verilenler = new Set<string>();
+        for (const alan of ifade.alanlar) {
+          if (verilenler.has(alan.ad))
+            hata("ATA4018", `Yinelenen alan: '${alan.ad}'.`, alan.aralık);
+          verilenler.add(alan.ad);
+          const hedef = alanlar?.get(alan.ad);
+          const tip = ifadeDenetle(alan.değer, hedef);
+          if (hedef) uyumDenetle(tip, hedef, alan.değer.aralık);
+          else if (alanlar)
+            hata(
+              "ATA4019",
+              `'${ifade.yapıAdı}' yapısında '${alan.ad}' alanı bulunamadı.`,
+              alan.aralık,
+            );
+        }
+        for (const ad of alanlar?.keys() ?? []) {
+          if (!verilenler.has(ad))
+            hata("ATA4017", `'${ifade.yapıAdı}' yapısının '${ad}' alanı eksik.`, ifade.aralık);
+        }
+        return alanlar ? { tür: "yapı", ad: ifade.yapıAdı } : bilinmeyen;
+      }
+      case "alan-erişim": {
+        const hedef = ifadeDenetle(ifade.hedef);
+        if (hedef.tür === "bilinmeyen") return bilinmeyen;
+        if (hedef.tür !== "yapı") {
+          hata(
+            "ATA4020",
+            `Alan erişimi yapı gerektirir; '${tipiGöster(hedef)}' verildi.`,
+            ifade.aralık,
+          );
+          return bilinmeyen;
+        }
+        const tip = yapıAlanları.get(hedef.ad)?.get(ifade.alan);
+        if (tip) return tip;
+        hata("ATA4019", `'${hedef.ad}' yapısında '${ifade.alan}' alanı bulunamadı.`, ifade.aralık);
+        return bilinmeyen;
+      }
+      case "indeks": {
+        const hedef = ifadeDenetle(ifade.hedef);
+        const indeks = ifadeDenetle(ifade.indeks);
+        if (indeks.tür !== "sayı" && indeks.tür !== "bilinmeyen")
+          hata(
+            "ATA4022",
+            `Liste indeksi 'sayı' olmalıdır; '${tipiGöster(indeks)}' verildi.`,
+            ifade.indeks.aralık,
+          );
+        if (hedef.tür === "liste") return hedef.eleman;
+        if (hedef.tür !== "bilinmeyen")
+          hata(
+            "ATA4021",
+            `İndeksleme 'liste<T>' gerektirir; '${tipiGöster(hedef)}' verildi.`,
+            ifade.hedef.aralık,
+          );
+        return bilinmeyen;
+      }
       case "sayı":
         return sayı;
       case "mantık":
@@ -267,6 +335,8 @@ export function tipleriDenetle(
 
   function bildirimDenetle(bildirim: Bildirim, dönüş: Tip | null): boolean {
     switch (bildirim.tür) {
+      case "yapı":
+        break;
       case "sabit":
       case "değişken": {
         const açık = bildirim.açıkTip ? tipÇöz(bildirim.açıkTip) : undefined;
@@ -352,6 +422,16 @@ export function tipleriDenetle(
     return false;
   }
 
+  for (const bildirim of program.bildirimler) {
+    if (bildirim.tür !== "yapı") continue;
+    const alanlar = new Map<string, Tip>();
+    for (const alan of bildirim.alanlar) {
+      const tip = tipÇöz(alan.tip);
+      if (alanlar.has(alan.ad)) hata("ATA4018", `Yinelenen alan: '${alan.ad}'.`, alan.aralık);
+      else alanlar.set(alan.ad, tip);
+    }
+    if (isimler.yapılar.get(bildirim.ad) === bildirim) yapıAlanları.set(bildirim.ad, alanlar);
+  }
   for (const sembol of isimler.bildirimSembolleri.values()) {
     if (sembol.tür === "işlev")
       işlevİmzaları.set(sembol, {
@@ -360,5 +440,5 @@ export function tipleriDenetle(
       });
   }
   for (const bildirim of program.bildirimler) bildirimDenetle(bildirim, null);
-  return { tanılar, ifadeTipleri, sembolTipleri, işlevİmzaları };
+  return { tanılar, ifadeTipleri, sembolTipleri, işlevİmzaları, yapıAlanları };
 }

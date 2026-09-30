@@ -55,6 +55,17 @@ export interface İşlevBildirimi extends Düğüm {
   readonly blok: Blok;
 }
 
+export interface YapıAlanı extends Düğüm {
+  readonly ad: string;
+  readonly tip: Tipİfadesi;
+}
+
+export interface YapıBildirimi extends Düğüm {
+  readonly tür: "yapı";
+  readonly ad: string;
+  readonly alanlar: readonly YapıAlanı[];
+}
+
 export type Bildirim =
   | DeğerBildirimi
   | Blok
@@ -62,10 +73,12 @@ export type Bildirim =
   | İkenDöngüsü
   | ListeDöngüsü
   | İşlevBildirimi
+  | YapıBildirimi
   | (Düğüm & { readonly tür: "yazdır" | "ifade-bildirimi"; readonly ifade: İfade })
   | (Düğüm & { readonly tür: "döndür"; readonly ifade: İfade | null });
 
 export type Tipİfadesi =
+  | (Düğüm & { readonly tür: "adlandırılmış-tip"; readonly ad: string })
   | (Düğüm & { readonly tür: "temel-tip"; readonly ad: "sayı" | "yazı" | "mantık" | "hiç" })
   | (Düğüm & { readonly tür: "liste-tipi"; readonly eleman: Tipİfadesi })
   | (Düğüm & { readonly tür: "isteğe-bağlı-tip"; readonly temel: Tipİfadesi });
@@ -91,6 +104,13 @@ export type YazıParçası =
   | { readonly tür: "ifade"; readonly ifade: İfade };
 
 export type İfade =
+  | (Düğüm & {
+      readonly tür: "yapı-oluşturma";
+      readonly yapıAdı: string;
+      readonly alanlar: readonly (Düğüm & { readonly ad: string; readonly değer: İfade })[];
+    })
+  | (Düğüm & { readonly tür: "alan-erişim"; readonly hedef: İfade; readonly alan: string })
+  | (Düğüm & { readonly tür: "indeks"; readonly hedef: İfade; readonly indeks: İfade })
   | (Düğüm & { readonly tür: "sayı"; readonly değer: number })
   | (Düğüm & { readonly tür: "yazı"; readonly parçalar: readonly YazıParçası[] })
   | (Düğüm & { readonly tür: "mantık"; readonly değer: boolean })

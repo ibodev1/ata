@@ -1,4 +1,4 @@
-import type { Program, Bildirim, İfade, Parametre, Blok } from "../ast/düğümler.ts";
+import type { Program, Bildirim, İfade, Parametre, Blok, YapıBildirimi } from "../ast/düğümler.ts";
 import type { Tanı } from "../tanılama/tanı.ts";
 import { Kapsam } from "./kapsam.ts";
 import type { Sembol } from "./kapsam.ts";
@@ -8,6 +8,7 @@ export interface İsimÇözümlemeSonucu {
   readonly tanılar: readonly Tanı[];
   readonly bağlar: ReadonlyMap<İfade, Sembol>;
   readonly bildirimSembolleri: ReadonlyMap<Bildirim | Parametre, Sembol>;
+  readonly yapılar: ReadonlyMap<string, YapıBildirimi>;
 }
 
 export function isimleriÇöz(program: Program, yol = "<kaynak>"): İsimÇözümlemeSonucu {
@@ -15,6 +16,7 @@ export function isimleriÇöz(program: Program, yol = "<kaynak>"): İsimÇözüm
   const bağlar = new Map<İfade, Sembol>();
   const bildirimSembolleri = new Map<Bildirim | Parametre, Sembol>();
   const programKapsamı = new Kapsam();
+  const yapılar = new Map<string, YapıBildirimi>();
   for (const işlev of yerleşikler) programKapsamı.ekle({ tür: "yerleşik", ad: işlev.ad, işlev });
 
   function ekle(kapsam: Kapsam, sembol: Exclude<Sembol, { tür: "yerleşik" }>): void {
@@ -47,6 +49,16 @@ export function isimleriÇöz(program: Program, yol = "<kaynak>"): İsimÇözüm
 
   function ifadeÇöz(ifade: İfade, kapsam: Kapsam): void {
     switch (ifade.tür) {
+      case "yapı-oluşturma":
+        ifade.alanlar.forEach((alan) => ifadeÇöz(alan.değer, kapsam));
+        break;
+      case "alan-erişim":
+        ifadeÇöz(ifade.hedef, kapsam);
+        break;
+      case "indeks":
+        ifadeÇöz(ifade.hedef, kapsam);
+        ifadeÇöz(ifade.indeks, kapsam);
+        break;
       case "tanımlayıcı":
         bağla(ifade, ifade.ad, kapsam);
         break;
@@ -86,6 +98,8 @@ export function isimleriÇöz(program: Program, yol = "<kaynak>"): İsimÇözüm
 
   function bildirimÇöz(bildirim: Bildirim, kapsam: Kapsam): void {
     switch (bildirim.tür) {
+      case "yapı":
+        break;
       case "sabit":
       case "değişken":
         ifadeÇöz(bildirim.başlangıç, kapsam);
@@ -139,9 +153,20 @@ export function isimleriÇöz(program: Program, yol = "<kaynak>"): İsimÇözüm
   }
 
   for (const bildirim of program.bildirimler) {
+    if (bildirim.tür === "yapı") {
+      if (yapılar.has(bildirim.ad))
+        tanılar.push({
+          kod: "ATA3005",
+          seviye: "hata",
+          yol,
+          aralık: bildirim.aralık,
+          mesaj: `Yinelenen yapı tipi: '${bildirim.ad}'.`,
+        });
+      else yapılar.set(bildirim.ad, bildirim);
+    }
     if (bildirim.tür === "işlev")
       ekle(programKapsamı, { tür: "işlev", ad: bildirim.ad, bildirim, aralık: bildirim.aralık });
   }
   for (const bildirim of program.bildirimler) bildirimÇöz(bildirim, programKapsamı);
-  return { tanılar, bağlar, bildirimSembolleri };
+  return { tanılar, bağlar, bildirimSembolleri, yapılar };
 }

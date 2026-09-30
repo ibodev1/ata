@@ -2,6 +2,7 @@ import type { KaynakAralığı } from "../kaynak/konum.ts";
 import { hata } from "./hata.ts";
 
 export type Değer =
+  | { readonly tür: "yapı"; readonly yapıAdı: string; readonly alanlar: ReadonlyMap<string, Değer> }
   | { readonly tür: "sayı"; readonly değer: number }
   | { readonly tür: "yazı"; readonly değer: string }
   | { readonly tür: "mantık"; readonly değer: boolean }
@@ -17,6 +18,15 @@ export function yazıyaDönüştür(değer: Değer, aralık: KaynakAralığı): 
 
 export function değeriGöster(değer: Değer): string {
   switch (değer.tür) {
+    case "yapı": {
+      const alanlar = [...değer.alanlar].map(
+        ([ad, alan]) =>
+          `${ad}: ${alan.tür === "yazı" ? JSON.stringify(alan.değer) : değeriGöster(alan)}`,
+      );
+      return alanlar.length === 0
+        ? `${değer.yapıAdı} {}`
+        : `${değer.yapıAdı} { ${alanlar.join(", ")} }`;
+    }
     case "sayı":
       return String(değer.değer);
     case "yazı":

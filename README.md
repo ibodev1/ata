@@ -1,6 +1,6 @@
 # Ata Dil
 
-Ata, Türkçenin düşünce sırasını ve doğal yapısını sözdizimine yansıtmayı amaçlayan deneysel bir hobi ve öğrenme projesidir. Unicode/Türkçe tanımlayıcıları, statik tip denetimi, lexical kapsamı, kullanıcı işlevleri ve listeleri olan yorumlanan bir dildir. Kaynak dosyalarının uzantısı `.ata`, mevcut sürüm **0.1.0-dev.5** (Aşama 5).
+Ata, Türkçenin düşünce sırasını ve doğal yapısını sözdizimine yansıtmayı amaçlayan deneysel bir hobi ve öğrenme projesidir. Unicode/Türkçe tanımlayıcıları, statik tip denetimi, lexical kapsamı, kullanıcı işlevleri, yapıları ve listeleri olan yorumlanan bir dildir. Kaynak dosyalarının uzantısı `.ata`, mevcut sürüm **0.1.0-dev.6** (Aşama 6).
 
 Bun 1.4.2, TypeScript 7 ve Chevrotain kullanılır. Tek paketli proje ESM biçimindedir; testler `bun:test` ile çalışır. Tek çalışma zamanı bağımlılığı Chevrotain'dir. Kod kalitesi Oxlint, biçimlendirme Oxfmt ile denetlenir; `.ata` dosyaları Oxfmt kapsamı dışındadır.
 
@@ -14,6 +14,8 @@ bun run src/cli/cli.ts denetle örnekler/merhaba.ata
 bun run src/cli/cli.ts çalıştır örnekler/merhaba.ata
 bun run src/cli/cli.ts çalıştır örnekler/temeller.ata
 bun run src/cli/cli.ts çalıştır örnekler/girdi.ata
+bun run src/cli/cli.ts denetle örnekler/yapılar.ata
+bun run src/cli/cli.ts çalıştır örnekler/yapılar.ata
 bun run typecheck
 bun run lint
 bun run format
@@ -32,6 +34,24 @@ sabit ad = "Dünya"
 `ata çalıştır merhaba.ata` mantığında `çalıştır` kaynağı sözcüklere ayırır, ayrıştırır, AST oluşturur, isim ve tip denetimini yapar; tanı yoksa tree-walk yorumlayıcıyla yürütür. Geliştirme ortamında `bun run dev çalıştır örnekler/merhaba.ata` kullanılır. Başarıda yalnızca program çıktısı gösterilir; çıkış kodu 0, hata durumunda Türkçe tanılarla 1 olur. Yukarıdaki programın çıktısı `Merhaba Dünya!` olur.
 
 `ata denetle dosya.ata` aynı kaynak → ayrıştırma → analiz hattını kullanır ve yorumlayıcıyı çalıştırmaz. Başarıda `Denetim başarılı.` ve çıkış kodu 0; ön yüz hatalarında Türkçe tanılar ve çıkış kodu 1 üretir. Örneğin `1 / 0 yazdır` denetimden geçer, çalıştırmada `ATA5001` verir.
+
+## Yapılar ve liste indeksleme
+
+```ata
+yapı Kullanıcı {
+    ad: yazı
+}
+
+sabit kişi = Kullanıcı { ad: "İbrahim" }
+kişi.ad yazdır
+[kişi][0].ad yazdır
+```
+
+Yapılar yalnızca üst seviyede tanımlanır; her alanın tipi ve oluşturma sırasında değeri zorunludur. Alanlar satır sonu veya virgülle ayrılır, son virgül kabul edilir. Yapı adları ayrı tip ad alanında bulunur; aynı adlı değer/işlev olabilir. Tipler nominaldir: aynı alanları taşıyan farklı yapı adları birbirine atanamaz. İleri ve recursive tipler (`sonraki: Düğüm?`) desteklenir; alan ifadeleri kaynak sırasıyla değerlendirilir.
+
+Alan okuma ve liste indeksleme çağrıyla zincirlenebilir: `getir()[0].adres.şehir`. İndeksleme yalnızca listelerde geçerlidir; `liste<T>[sayı]` sonucu `T` olur. İndeks güvenli tam sayı değilse `ATA5008`, negatif veya sınır dışındaysa `ATA5009` üretilir. İsteğe bağlı yapı/liste doğrudan okunamaz; yapı eşitliği, alan/indeks ataması ve yazı indeksleme desteklenmez. Değiştirilebilir yapı bağının tamamı yeniden atanabilir. Yazdırma, yerleştirme ve `yazıya`, yapıları `Kullanıcı { ad: "İbrahim" }` biçiminde gösterir.
+
+Yeni anlamsal tanılar: `ATA3004` tanımsız tip, `ATA3005` yinelenen yapı adı; `ATA4017` eksik alan, `ATA4018` yinelenen alan, `ATA4019` bulunamayan alan, `ATA4020` yapı gerektiren alan erişimi, `ATA4021` liste gerektiren indeksleme, `ATA4022` sayı olmayan indeks. Alan tipi uyuşmazlığında mevcut `ATA4001` kullanılır.
 
 ## Temel standart işlevler
 

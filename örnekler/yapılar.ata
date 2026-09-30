@@ -1,0 +1,18 @@
+yapı Adres {
+    şehir: yazı
+    posta_kodu: sayı
+}
+
+yapı Kullanıcı {
+    ad: yazı
+    yaş: sayı
+    adres: Adres
+}
+
+sabit kullanıcılar = [
+    Kullanıcı { ad: "İbrahim", yaş: 21, adres: Adres { şehir: "Konya", posta_kodu: 42000 } },
+    Kullanıcı { ad: "Ayşe", yaş: 24, adres: Adres { şehir: "Ankara", posta_kodu: 6000 } }
+]
+
+"{kullanıcılar[0].ad}, {kullanıcılar[0].adres.şehir}" yazdır
+kullanıcılar[1].ad yazdır

@@ -7,7 +7,9 @@ type ÇalışmaTanıKodu =
   | "ATA5004"
   | "ATA5005"
   | "ATA5006"
-  | "ATA5007";
+  | "ATA5007"
+  | "ATA5008"
+  | "ATA5009";
 
 // Yalnızca beklenen çalışma zamanı tanıları API sınırında yakalanır.
 export class ÇalışmaZamanıHatası extends Error {

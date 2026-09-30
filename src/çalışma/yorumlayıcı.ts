@@ -1,4 +1,4 @@
-import type { Program, Bildirim, İfade, Blok } from "../ast/düğümler.ts";
+import type { Program, Bildirim, İfade, Blok, YapıBildirimi } from "../ast/düğümler.ts";
 import type { Tanı } from "../tanılama/tanı.ts";
 import type { Değer } from "./değer.ts";
 import { yazıyaDönüştür, hiç } from "./değer.ts";
@@ -23,8 +23,53 @@ const devam: Akış = { tür: "devam" };
 
 export function yorumla(program: Program, seçenekler: YorumlamaSeçenekleri): YorumlamaSonucu {
   let çağrıDerinliği = 0;
+  const yapılar = new Map<string, YapıBildirimi>();
   function değerlendir(ifade: İfade, ortam: Ortam): Değer {
     switch (ifade.tür) {
+      case "yapı-oluşturma": {
+        const yapı = yapılar.get(ifade.yapıAdı);
+        if (!yapı)
+          return hata(
+            "ATA5005",
+            `Çalışma zamanı yapı tipi bulunamadı: '${ifade.yapıAdı}'.`,
+            ifade.aralık,
+          );
+        const alanlar = new Map<string, Değer>();
+        for (const alan of ifade.alanlar) {
+          if (alanlar.has(alan.ad) || !yapı.alanlar.some((tanım) => tanım.ad === alan.ad))
+            return hata("ATA5005", `Geçersiz yapı alanı: '${alan.ad}'.`, alan.aralık);
+          alanlar.set(alan.ad, değerlendir(alan.değer, ortam));
+        }
+        if (yapı.alanlar.some((alan) => !alanlar.has(alan.ad)))
+          return hata("ATA5005", "Çalışma zamanında yapı alanı eksik.", ifade.aralık);
+        return { tür: "yapı", yapıAdı: yapı.ad, alanlar };
+      }
+      case "alan-erişim": {
+        const hedef = değerlendir(ifade.hedef, ortam);
+        if (hedef.tür !== "yapı")
+          return hata("ATA5005", "Alan erişimi için yapı değeri bekleniyordu.", ifade.aralık);
+        const alan = hedef.alanlar.get(ifade.alan);
+        if (!alan)
+          return hata(
+            "ATA5005",
+            `'${hedef.yapıAdı}' yapısında '${ifade.alan}' alanı bulunamadı.`,
+            ifade.aralık,
+          );
+        return alan;
+      }
+      case "indeks": {
+        const hedef = değerlendir(ifade.hedef, ortam);
+        const indeks = değerlendir(ifade.indeks, ortam);
+        if (hedef.tür !== "liste" || indeks.tür !== "sayı")
+          return hata("ATA5005", "İndeksleme liste ve sayı değeri gerektirir.", ifade.aralık);
+        if (!Number.isFinite(indeks.değer) || !Number.isSafeInteger(indeks.değer))
+          return hata("ATA5008", "Liste indeksi güvenli tam sayı olmalıdır.", ifade.indeks.aralık);
+        if (indeks.değer < 0 || indeks.değer >= hedef.elemanlar.length)
+          return hata("ATA5009", "Liste indeksi aralık dışında.", ifade.indeks.aralık);
+        const değer = hedef.elemanlar[indeks.değer];
+        if (!değer) return hata("ATA5005", "Liste elemanı bulunamadı.", ifade.aralık);
+        return değer;
+      }
       case "sayı":
         return sayıSonucu(ifade.değer, ifade.aralık);
       case "mantık":
@@ -200,6 +245,7 @@ export function yorumla(program: Program, seçenekler: YorumlamaSeçenekleri): Y
       case "döndür":
         return { tür: "dönüş", değer: bildirim.ifade ? değerlendir(bildirim.ifade, ortam) : hiç };
       case "işlev":
+      case "yapı":
         break;
     }
     return devam;
@@ -210,6 +256,14 @@ export function yorumla(program: Program, seçenekler: YorumlamaSeçenekleri): Y
     for (const işlev of yerleşikler)
       küresel.tanımla(işlev.ad, { tür: "yerleşik", işlev }, program.aralık);
     for (const bildirim of program.bildirimler) {
+      if (bildirim.tür === "yapı") {
+        if (
+          yapılar.has(bildirim.ad) ||
+          new Set(bildirim.alanlar.map((alan) => alan.ad)).size !== bildirim.alanlar.length
+        )
+          hata("ATA5005", "Yinelenen çalışma zamanı yapı tipi veya alanı.", bildirim.aralık);
+        yapılar.set(bildirim.ad, bildirim);
+      }
       if (bildirim.tür === "işlev")
         küresel.tanımla(bildirim.ad, { tür: "işlev", bildirim, ortam: küresel }, bildirim.aralık);
     }

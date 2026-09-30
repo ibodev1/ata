@@ -86,6 +86,7 @@ const ayrılmışSözcükler = [
   "sabit",
   "değişken",
   "işlev",
+  "yapı",
   "döndür",
   "eğer",
   "ise",
@@ -170,15 +171,41 @@ export const tokenTürleri = [
   ).map(([işaret, ad]) => createToken({ name: ad, label: işaret, pattern: işaret })),
 ];
 
-// Ortak ifade tokenları her iki kod modunda aynıdır; yalnızca kapanış farklıdır.
+// Yerleştirmedeki constructor süslüleri kendi modunda dengelenir.
+const SolSüslü = tokenTürleri.find((tür) => tür.name === "SolSüslü")!;
+const SağSüslü = tokenTürleri.find((tür) => tür.name === "SağSüslü")!;
+const İçSolSüslü = createToken({
+  name: "İçSolSüslü",
+  label: "{",
+  pattern: "{",
+  categories: SolSüslü,
+  push_mode: "süslü",
+});
+const İçSağSüslü = createToken({
+  name: "İçSağSüslü",
+  label: "}",
+  pattern: "}",
+  categories: SağSüslü,
+  pop_mode: true,
+});
+const süslüsüz = tokenTürleri.filter((tür) => tür !== SolSüslü && tür !== SağSüslü);
 export const lexerModları = {
   defaultMode: "kod",
   modes: {
     kod: [...tokenTürleri],
     yazı: [YazıSonu, YerleştirmeBaşlangıcı, YazıMetni, YazıSatırSonu],
-    ifade: [YerleştirmeSonu, ...tokenTürleri.filter((tür) => tür.name !== "SağSüslü")],
+    ifade: [YerleştirmeSonu, İçSolSüslü, ...süslüsüz],
+    süslü: [İçSolSüslü, İçSağSüslü, ...süslüsüz],
   },
 };
 
 // Parser tüm modların sözcüklerini tanır, lexer yalnızca etkin modu kullanır.
-tokenTürleri.push(YazıSonu, YerleştirmeBaşlangıcı, YerleştirmeSonu, YazıMetni, YazıSatırSonu);
+tokenTürleri.push(
+  YazıSonu,
+  YerleştirmeBaşlangıcı,
+  YerleştirmeSonu,
+  YazıMetni,
+  YazıSatırSonu,
+  İçSolSüslü,
+  İçSağSüslü,
+);

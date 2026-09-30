@@ -57,6 +57,7 @@ class AtaAyrıştırıcısı extends CstParser {
   readonly üstBildirim = this.RULE("üstBildirim", () =>
     this.OR([
       { ALT: () => this.SUBRULE(this.işlevBildirimi) },
+      { ALT: () => this.SUBRULE(this.yapıBildirimi) },
       { ALT: () => this.SUBRULE(this.bildirim) },
     ]),
   );
@@ -154,6 +155,43 @@ class AtaAyrıştırıcısı extends CstParser {
     this.SUBRULE(this.tip);
   });
 
+  readonly yapıBildirimi = this.RULE("yapıBildirimi", () => {
+    this.CONSUME(tokenTürü("yapı"));
+    this.CONSUME(Ad, { LABEL: "ad" });
+    this.SUBRULE(this.satırlar);
+    this.CONSUME(tokenTürü("SolSüslü"));
+    this.SUBRULE2(this.satırlar);
+    this.OPTION(() => {
+      this.SUBRULE(this.yapıAlanı);
+      this.MANY(() => {
+        this.SUBRULE(this.alanAyırıcı);
+        this.OR([
+          { ALT: () => this.SUBRULE2(this.yapıAlanı) },
+          { GATE: () => tokenMatcher(this.LA(1), tokenTürü("SağSüslü")), ALT: () => {} },
+        ]);
+      });
+    });
+    this.CONSUME(tokenTürü("SağSüslü"));
+  });
+
+  readonly yapıAlanı = this.RULE("yapıAlanı", () => {
+    this.CONSUME(Ad, { LABEL: "ad" });
+    this.CONSUME(tokenTürü("İkiNokta"));
+    this.SUBRULE(this.tip);
+  });
+
+  readonly alanAyırıcı = this.RULE("alanAyırıcı", () => {
+    this.OR([
+      {
+        ALT: () => {
+          this.CONSUME(tokenTürü("Virgül"));
+          this.SUBRULE(this.satırlar);
+        },
+      },
+      { ALT: () => this.AT_LEAST_ONE(() => this.CONSUME(SatırSonu)) },
+    ]);
+  });
+
   readonly ayırıcı = this.RULE("ayırıcı", () => {
     this.OR([
       { ALT: () => this.CONSUME(tokenTürü("SatırSonu")) },
@@ -180,6 +218,7 @@ class AtaAyrıştırıcısı extends CstParser {
       ...["sayı", "yazı", "mantık", "hiç"].map((ad) => ({
         ALT: () => this.CONSUME(tokenTürü(ad), { LABEL: "temel" }),
       })),
+      { ALT: () => this.CONSUME(tokenTürü("Tanımlayıcı"), { LABEL: "tipAdı" }) },
       {
         ALT: () => {
           this.CONSUME(tokenTürü("liste"));
@@ -249,7 +288,49 @@ class AtaAyrıştırıcısı extends CstParser {
 
   readonly çağrı = this.RULE("çağrı", () => {
     this.SUBRULE(this.birincil);
-    this.MANY(() => this.SUBRULE(this.çağrıSonu));
+    this.MANY(() => this.SUBRULE(this.postfixSonu));
+  });
+
+  readonly postfixSonu = this.RULE("postfixSonu", () => {
+    this.OR([
+      { ALT: () => this.SUBRULE(this.çağrıSonu) },
+      {
+        ALT: () => {
+          this.CONSUME(tokenTürü("SolKöşeli"));
+          this.SUBRULE(this.ifade);
+          this.CONSUME(tokenTürü("SağKöşeli"));
+        },
+      },
+      {
+        ALT: () => {
+          this.CONSUME(tokenTürü("Nokta"));
+          this.CONSUME(Ad, { LABEL: "alan" });
+        },
+      },
+    ]);
+  });
+
+  readonly yapıOluşturma = this.RULE("yapıOluşturma", () => {
+    this.CONSUME(Ad, { LABEL: "ad" });
+    this.CONSUME(tokenTürü("SolSüslü"));
+    this.SUBRULE(this.satırlar);
+    this.OPTION(() => {
+      this.SUBRULE(this.alanDeğeri);
+      this.MANY(() => {
+        this.SUBRULE(this.alanAyırıcı);
+        this.OR([
+          { ALT: () => this.SUBRULE2(this.alanDeğeri) },
+          { GATE: () => tokenMatcher(this.LA(1), tokenTürü("SağSüslü")), ALT: () => {} },
+        ]);
+      });
+    });
+    this.CONSUME(tokenTürü("SağSüslü"));
+  });
+
+  readonly alanDeğeri = this.RULE("alanDeğeri", () => {
+    this.CONSUME(Ad, { LABEL: "ad" });
+    this.CONSUME(tokenTürü("İkiNokta"));
+    this.SUBRULE(this.ifade);
   });
 
   readonly çağrıSonu = this.RULE("çağrıSonu", () => {
@@ -284,6 +365,7 @@ class AtaAyrıştırıcısı extends CstParser {
       { ALT: () => this.CONSUME(tokenTürü("doğru"), { LABEL: "değer" }) },
       { ALT: () => this.CONSUME(tokenTürü("yanlış"), { LABEL: "değer" }) },
       { ALT: () => this.CONSUME(tokenTürü("yok"), { LABEL: "değer" }) },
+      { ALT: () => this.SUBRULE(this.yapıOluşturma) },
       { ALT: () => this.CONSUME(Ad, { LABEL: "değer" }) },
       {
         ALT: () => {
@@ -327,12 +409,13 @@ export function ayrıştır(girdi: Kaynak): AyrıştırmaSonucu {
   const kaynak = kaynakOluştur(girdi.yol, girdi.içerik);
   const sözcükler = sözcüklereAyır(kaynak, { satırSonlarınıKoru: true });
   if (sözcükler.tanılar.length > 0) return { program: null, tanılar: sözcükler.tanılar };
-  let derinlik = 0;
+  const parantezler: string[] = [];
   parser.input = sözcükler.tokenlar.filter((token) => {
-    if (["SolParantez", "SolKöşeli"].includes(token.tokenType.name)) derinlik++;
-    if (["SağParantez", "SağKöşeli"].includes(token.tokenType.name))
-      derinlik = Math.max(0, derinlik - 1);
-    return token.tokenType !== SatırSonu || derinlik === 0;
+    if (["SolParantez", "SolKöşeli", "SolSüslü"].some((ad) => tokenMatcher(token, tokenTürü(ad))))
+      parantezler.push(tokenMatcher(token, tokenTürü("SolSüslü")) ? "süslü" : "ifade");
+    if (["SağParantez", "SağKöşeli", "SağSüslü"].some((ad) => tokenMatcher(token, tokenTürü(ad))))
+      parantezler.pop();
+    return token.tokenType !== SatırSonu || parantezler.at(-1) !== "ifade";
   });
   const cst = parser.program();
   const tanılar: Tanı[] = parser.errors.map((hata) => {

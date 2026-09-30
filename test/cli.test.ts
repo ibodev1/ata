@@ -14,7 +14,45 @@ function komutÇalıştır(...argümanlar: string[]) {
 }
 
 test("CLI sürümü gösterir", () => {
-  expect(komutÇalıştır("sürüm")).toEqual({ kod: 0, çıktı: "Ata Dil 0.1.0-dev.5\n", hata: "" });
+  expect(komutÇalıştır("sürüm")).toEqual({ kod: 0, çıktı: "Ata Dil 0.1.0-dev.6\n", hata: "" });
+});
+
+test("CLI yapı örneğini denetler ve alan/indeks zincirlerini çalıştırır", () => {
+  const yol = Bun.file(new URL("../örnekler/yapılar.ata", import.meta.url)).name!;
+  expect(komutÇalıştır("denetle", yol)).toEqual({ kod: 0, çıktı: "Denetim başarılı.\n", hata: "" });
+  expect(komutÇalıştır("çalıştır", yol)).toEqual({
+    kod: 0,
+    çıktı: "İbrahim, Konya\nAyşe\n",
+    hata: "",
+  });
+});
+
+test.each([
+  { metin: "sabit k: Olmayan = 1", kod: "ATA3004", komut: "denetle" },
+  { metin: "yapı K { ad: yazı }; K {}", kod: "ATA4017", komut: "denetle" },
+  { metin: "yapı K {}; K { x: 1 }", kod: "ATA4019", komut: "denetle" },
+  { metin: "yapı K { ad: yazı }; K { ad: 1 }", kod: "ATA4001", komut: "denetle" },
+  { metin: "[1][1.5] yazdır", kod: "ATA5008", komut: "çalıştır" },
+  { metin: "[1][1] yazdır", kod: "ATA5009", komut: "çalıştır" },
+])("CLI yapı/indeks hatasını tanılar ve çıkış kodu 1 verir: %j", async ({ metin, kod, komut }) => {
+  const yol = `${örnekYolu}.${crypto.randomUUID()}.ata`;
+  try {
+    await Bun.write(yol, metin);
+    const sonuç = komutÇalıştır(komut, yol);
+    expect(sonuç.kod).toBe(1);
+    expect(sonuç.hata).toContain(`${kod} (hata):`);
+    expect(sonuç.hata).toContain(":1:");
+    expect(sonuç.hata).not.toContain("Error:");
+    expect(sonuç.çıktı).toBe("");
+    if (komut === "çalıştır")
+      expect(komutÇalıştır("denetle", yol)).toEqual({
+        kod: 0,
+        çıktı: "Denetim başarılı.\n",
+        hata: "",
+      });
+  } finally {
+    await Bun.file(yol).delete();
+  }
 });
 
 test("CLI yardımı ve argümansız kullanım Türkçedir", () => {

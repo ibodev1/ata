@@ -67,6 +67,17 @@ export class AstÜreticisi {
     if (düğüm.name === "değerBildirimi") return this.değerBildirimi(düğüm);
     if (düğüm.name === "blok") return this.blok(düğüm);
     if (düğüm.name === "koşul") return this.koşul(düğüm);
+    if (düğüm.name === "yapıBildirimi")
+      return {
+        tür: "yapı",
+        ad: token(düğüm, "ad").image,
+        alanlar: altlar(düğüm, "yapıAlanı").map((alan) => ({
+          ad: token(alan, "ad").image,
+          tip: this.tip(alt(alan, "tip")),
+          aralık: this.aralık(alan),
+        })),
+        aralık: this.aralık(düğüm),
+      };
     if (düğüm.name === "işlevBildirimi")
       return {
         tür: "işlev",
@@ -147,7 +158,10 @@ export class AstÜreticisi {
   private tip(düğüm: CstNode): Tipİfadesi {
     const konum = düğüm.location!;
     const soru = düğüm.children.Soru ? token(düğüm, "Soru") : null;
-    const sonToken = token(düğüm, düğüm.children.temel ? "temel" : "Büyük");
+    const sonToken = token(
+      düğüm,
+      düğüm.children.temel ? "temel" : düğüm.children.tipAdı ? "tipAdı" : "Büyük",
+    );
     const aralık = aralıkBul(
       this.kaynak,
       konum.startOffset,
@@ -159,7 +173,9 @@ export class AstÜreticisi {
           ad: token(düğüm, "temel").image as "sayı" | "yazı" | "mantık" | "hiç",
           aralık,
         }
-      : { tür: "liste-tipi", eleman: this.tip(alt(düğüm, "tip")), aralık };
+      : düğüm.children.tipAdı
+        ? { tür: "adlandırılmış-tip", ad: token(düğüm, "tipAdı").image, aralık }
+        : { tür: "liste-tipi", eleman: this.tip(alt(düğüm, "tip")), aralık };
     return soru ? { tür: "isteğe-bağlı-tip", temel, aralık: this.aralık(düğüm) } : temel;
   }
 
@@ -216,13 +232,31 @@ export class AstÜreticisi {
     }
     if (düğüm.name === "çağrı") {
       let ifade = this.ifade(alt(düğüm, "birincil"));
-      for (const son of altlar(düğüm, "çağrıSonu")) {
-        ifade = {
-          tür: "çağrı",
-          çağrılan: ifade,
-          argümanlar: altlar(son, "ifade").map((argüman) => this.ifade(argüman)),
-          aralık: { başlangıç: ifade.aralık.başlangıç, bitiş: this.aralık(son).bitiş },
-        };
+      for (const son of altlar(düğüm, "postfixSonu")) {
+        const postfixAralığı = { başlangıç: ifade.aralık.başlangıç, bitiş: this.aralık(son).bitiş };
+        if (son.children.çağrıSonu)
+          ifade = {
+            tür: "çağrı",
+            çağrılan: ifade,
+            argümanlar: altlar(alt(son, "çağrıSonu"), "ifade").map((argüman) =>
+              this.ifade(argüman),
+            ),
+            aralık: postfixAralığı,
+          };
+        else if (son.children.alan)
+          ifade = {
+            tür: "alan-erişim",
+            hedef: ifade,
+            alan: token(son, "alan").image,
+            aralık: postfixAralığı,
+          };
+        else
+          ifade = {
+            tür: "indeks",
+            hedef: ifade,
+            indeks: this.ifade(alt(son, "ifade")),
+            aralık: postfixAralığı,
+          };
       }
       return ifade;
     }
@@ -233,6 +267,18 @@ export class AstÜreticisi {
         aralık,
       };
     if (düğüm.children.listeİfadesi) return this.ifade(alt(düğüm, "listeİfadesi"));
+    if (düğüm.children.yapıOluşturma) return this.ifade(alt(düğüm, "yapıOluşturma"));
+    if (düğüm.name === "yapıOluşturma")
+      return {
+        tür: "yapı-oluşturma",
+        yapıAdı: token(düğüm, "ad").image,
+        aralık,
+        alanlar: altlar(düğüm, "alanDeğeri").map((alan) => ({
+          ad: token(alan, "ad").image,
+          değer: this.ifade(alt(alan, "ifade")),
+          aralık: this.aralık(alan),
+        })),
+      };
     if (düğüm.children.yerleştirmeliYazı) return this.ifade(alt(düğüm, "yerleştirmeliYazı"));
     if (düğüm.name === "yerleştirmeliYazı")
       return {

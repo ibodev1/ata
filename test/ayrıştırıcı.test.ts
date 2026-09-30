@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { kaynakOluştur } from "../src/index.ts";
+import { kaynakOluştur, analizEt } from "../src/index.ts";
 import { ayrıştır } from "../src/ayrıştırıcı/ayrıştırıcı.ts";
 
 test("sabit bildirimi AST'de değer, ad ve kaynak aralığı taşır", () => {
@@ -282,13 +282,19 @@ test.each([
   "?",
   "değil aktif",
   "[1,]",
-  "işlev f(a: bilinmeyen): sayı {}",
 ])("hatalı kaynak çökmeksizin ATA2xxx tanısı döndürür: %s", (metin) => {
   const sonuç = ayrıştır(kaynakOluştur("hata.ata", metin));
   expect(sonuç.program).toBeNull();
   expect(sonuç.tanılar.length).toBeGreaterThan(0);
   expect(sonuç.tanılar[0]!.kod).toMatch(/^ATA2\d{3}$/);
   expect(sonuç.tanılar[0]!.yol).toBe("hata.ata");
+});
+
+test("adlandırılmış bilinmeyen tip ayrıştırılır ve anlamsal çözümlemede reddedilir", () => {
+  const sonuç = ayrıştır(kaynakOluştur("hata.ata", "işlev f(a: bilinmeyen): sayı {}"));
+  expect(sonuç.tanılar).toEqual([]);
+  expect(sonuç.program).not.toBeNull();
+  expect(analizEt(sonuç.program!).tanılar.map((tanı) => tanı.kod)).toContain("ATA3004");
 });
 
 test("eksik ise ve dosya sonundaki kapanış tanıları doğru konumdadır", () => {

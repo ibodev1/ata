@@ -17,6 +17,8 @@ export type {
   İkenDöngüsü,
   ListeDöngüsü,
   İşlevBildirimi,
+  YapıBildirimi,
+  YapıAlanı,
   Parametre,
   Tipİfadesi,
   İfade,
