@@ -1,0 +1,8 @@
+// Ata Dil örneği
+
+sabit ad = "İbrahim"
+değişken sayaç = 0
+
+eğer sayaç < 10 ise {
+    "Merhaba {ad}" yazdır
+}
