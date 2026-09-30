@@ -280,6 +280,7 @@ class AtaAyrıştırıcısı extends CstParser {
     this.OR([
       { ALT: () => this.CONSUME(tokenTürü("Sayı"), { LABEL: "değer" }) },
       { ALT: () => this.CONSUME(tokenTürü("Yazı"), { LABEL: "değer" }) },
+      { ALT: () => this.SUBRULE(this.yerleştirmeliYazı) },
       { ALT: () => this.CONSUME(tokenTürü("doğru"), { LABEL: "değer" }) },
       { ALT: () => this.CONSUME(tokenTürü("yanlış"), { LABEL: "değer" }) },
       { ALT: () => this.CONSUME(tokenTürü("yok"), { LABEL: "değer" }) },
@@ -292,6 +293,25 @@ class AtaAyrıştırıcısı extends CstParser {
         },
       },
       { ALT: () => this.SUBRULE(this.liste) },
+    ]);
+  });
+
+  readonly yerleştirmeliYazı = this.RULE("yerleştirmeliYazı", () => {
+    this.CONSUME(tokenTürü("YazıBaşlangıcı"));
+    this.MANY(() => this.SUBRULE(this.yazıParçası));
+    this.CONSUME(tokenTürü("YazıSonu"));
+  });
+
+  readonly yazıParçası = this.RULE("yazıParçası", () => {
+    this.OR([
+      { ALT: () => this.CONSUME(tokenTürü("YazıMetni")) },
+      {
+        ALT: () => {
+          this.CONSUME(tokenTürü("YerleştirmeBaşlangıcı"));
+          this.SUBRULE(this.ifade);
+          this.CONSUME(tokenTürü("YerleştirmeSonu"));
+        },
+      },
     ]);
   });
 }

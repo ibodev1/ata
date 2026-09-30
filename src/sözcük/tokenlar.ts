@@ -20,6 +20,7 @@ export const Yazı = createToken({
     let son = ofset + 1;
     while (son < metin.length && metin[son] !== "\r" && metin[son] !== "\n") {
       const karakter = metin[son++];
+      if (karakter === "{") return null;
       if (karakter === '"') break;
       if (karakter === "\\" && son < metin.length && metin[son] !== "\r" && metin[son] !== "\n") {
         son += metin.codePointAt(son)! > 0xffff ? 2 : 1;
@@ -29,6 +30,44 @@ export const Yazı = createToken({
   },
   line_breaks: false,
   start_chars_hint: ['"'],
+});
+
+export const YazıBaşlangıcı = createToken({
+  name: "YazıBaşlangıcı",
+  label: '"',
+  pattern: (metin, ofset) => (metin[ofset] === '"' ? ['"'] : null),
+  push_mode: "yazı",
+  line_breaks: false,
+  start_chars_hint: ['"'],
+});
+export const YazıSonu = createToken({
+  name: "YazıSonu",
+  label: '"',
+  pattern: '"',
+  pop_mode: true,
+});
+export const YerleştirmeBaşlangıcı = createToken({
+  name: "YerleştirmeBaşlangıcı",
+  label: "{",
+  pattern: "{",
+  push_mode: "ifade",
+});
+export const YerleştirmeSonu = createToken({
+  name: "YerleştirmeSonu",
+  label: "}",
+  pattern: "}",
+  pop_mode: true,
+});
+export const YazıMetni = createToken({
+  name: "YazıMetni",
+  pattern: /(?:[^"{\\\r\n]|\\[^\r\n])+/,
+  line_breaks: false,
+});
+export const YazıSatırSonu = createToken({
+  name: "YazıSatırSonu",
+  pattern: /\r\n|\r|\n/,
+  line_breaks: true,
+  pop_mode: true,
 });
 
 export const ÇokSatırlıAçıklama = createToken({
@@ -83,6 +122,7 @@ export const tokenTürleri = [
   createToken({ name: "TekSatırlıAçıklama", pattern: /\/\/[^\r\n]*/, group: Lexer.SKIPPED }),
   ÇokSatırlıAçıklama,
   Yazı,
+  YazıBaşlangıcı,
   ...ayrılmışSözcükler
     .toSorted((a, b) => b.length - a.length)
     .map((sözcük) =>
@@ -129,3 +169,16 @@ export const tokenTürleri = [
     ] as const
   ).map(([işaret, ad]) => createToken({ name: ad, label: işaret, pattern: işaret })),
 ];
+
+// Ortak ifade tokenları her iki kod modunda aynıdır; yalnızca kapanış farklıdır.
+export const lexerModları = {
+  defaultMode: "kod",
+  modes: {
+    kod: [...tokenTürleri],
+    yazı: [YazıSonu, YerleştirmeBaşlangıcı, YazıMetni, YazıSatırSonu],
+    ifade: [YerleştirmeSonu, ...tokenTürleri.filter((tür) => tür.name !== "SağSüslü")],
+  },
+};
+
+// Parser tüm modların sözcüklerini tanır, lexer yalnızca etkin modu kullanır.
+tokenTürleri.push(YazıSonu, YerleştirmeBaşlangıcı, YerleştirmeSonu, YazıMetni, YazıSatırSonu);

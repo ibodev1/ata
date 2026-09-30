@@ -107,6 +107,15 @@ export function tipleriDenetle(
       case "mantık":
         return mantık;
       case "yazı":
+        for (const parça of ifade.parçalar) {
+          if (parça.tür === "ifade" && ifadeDenetle(parça.ifade).tür === "hiç")
+            hata(
+              "ATA4016",
+              "'hiç' türündeki ifade yazı içine yerleştirilemez.",
+              parça.ifade.aralık,
+            );
+        }
+        return { tür: "yazı" };
       case "yok":
         return { tür: ifade.tür };
       case "tanımlayıcı": {

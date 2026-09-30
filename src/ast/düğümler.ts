@@ -86,9 +86,13 @@ export type İkiliİşleç =
   | "veya";
 export type Atamaİşleci = "=" | "+=" | "-=" | "*=" | "/=" | "%=";
 
+export type YazıParçası =
+  | { readonly tür: "metin"; readonly değer: string }
+  | { readonly tür: "ifade"; readonly ifade: İfade };
+
 export type İfade =
   | (Düğüm & { readonly tür: "sayı"; readonly değer: number })
-  | (Düğüm & { readonly tür: "yazı"; readonly değer: string })
+  | (Düğüm & { readonly tür: "yazı"; readonly parçalar: readonly YazıParçası[] })
   | (Düğüm & { readonly tür: "mantık"; readonly değer: boolean })
   | (Düğüm & { readonly tür: "yok"; readonly değer: null })
   | (Düğüm & { readonly tür: "tanımlayıcı"; readonly ad: string })

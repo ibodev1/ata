@@ -1,8 +1,7 @@
-// Ata Dil örneği
+// İlk çalışan Ata programı
 
 sabit ad = "İbrahim"
-değişken sayaç = 0
+sabit dil = "Ata"
 
-eğer sayaç < 10 ise {
-    "Merhaba {ad}" yazdır
-}
+"Merhaba {ad}!" yazdır
+"{dil} Dil çalışıyor." yazdır

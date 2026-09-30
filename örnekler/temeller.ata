@@ -1,0 +1,27 @@
+// İşlevler, özyineleme, listeler ve döngüler
+işlev toplam(n: sayı): sayı {
+    eğer n == 0 ise { 0 döndür }
+    n + toplam(n - 1) döndür
+}
+
+işlev kare(sayı: sayı): sayı {
+    sayı * sayı döndür
+}
+
+"Toplam: {toplam(5)}" yazdır
+sabit sayılar = [1, 2, 3]
+sayılar içindeki her sayı için {
+    "{sayı} → {kare(sayı)}" yazdır
+}
+
+değişken sayaç = 0
+sayaç < 3 iken {
+    "Sayaç: {sayaç}" yazdır
+    sayaç += 1
+}
+
+eğer sayaç == 3 ise {
+    "Tamamlandı." yazdır
+} değilse {
+    "Beklenmeyen sayaç." yazdır
+}

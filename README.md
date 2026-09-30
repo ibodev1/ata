@@ -1,6 +1,6 @@
 # Ata Dil
 
-Ata, Türkçenin düşünce sırasını ve doğal yapısını sözdizimine yansıtmayı amaçlayan deneysel bir hobi ve öğrenme projesidir. Kaynak dosyalarının uzantısı `.ata`, mevcut sürüm **0.1.0-dev.3** (Aşama 3).
+Ata, Türkçenin düşünce sırasını ve doğal yapısını sözdizimine yansıtmayı amaçlayan deneysel bir hobi ve öğrenme projesidir. Unicode/Türkçe tanımlayıcıları, statik tip denetimi, lexical kapsamı, kullanıcı işlevleri ve listeleri olan yorumlanan bir dildir. Kaynak dosyalarının uzantısı `.ata`, mevcut sürüm **0.1.0-dev.4** (Aşama 4).
 
 Bun 1.4.2, TypeScript 7 ve Chevrotain kullanılır. Tek paketli proje ESM biçimindedir; testler `bun:test` ile çalışır. Tek çalışma zamanı bağımlılığı Chevrotain'dir. Kod kalitesi Oxlint, biçimlendirme Oxfmt ile denetlenir; `.ata` dosyaları Oxfmt kapsamı dışındadır.
 
@@ -11,6 +11,7 @@ bun install
 bun run dev yardım
 bun run src/cli/cli.ts sürüm
 bun run src/cli/cli.ts çalıştır örnekler/merhaba.ata
+bun run src/cli/cli.ts çalıştır örnekler/temeller.ata
 bun run typecheck
 bun run lint
 bun run format
@@ -22,21 +23,17 @@ bun run check
 ## Örnek
 
 ```ata
-sabit ad = "İbrahim"
-değişken sayaç = 0
-
-eğer sayaç < 10 ise {
-    "Merhaba {ad}" yazdır
-}
+sabit ad = "Dünya"
+"Merhaba {ad}!" yazdır
 ```
 
-Sözcük çözümleyici, Chevrotain ayrıştırıcısı, CST'den bağımsız AST üretimi, isim çözümleme ve statik tip denetimi mevcuttur. `çalıştır` bu aşamaları uygular; hata durumunda Türkçe tanılarla çıkış kodu 1 olur. Yorumlayıcı henüz uygulanmadı. Yazı içindeki `{ad}` bu aşamada düz metindir.
+`ata çalıştır merhaba.ata` mantığında `çalıştır` kaynağı sözcüklere ayırır, ayrıştırır, AST oluşturur, isim ve tip denetimini yapar; tanı yoksa tree-walk yorumlayıcıyla yürütür. Geliştirme ortamında `bun run dev çalıştır örnekler/merhaba.ata` kullanılır. Başarıda yalnızca program çıktısı gösterilir; çıkış kodu 0, hata durumunda Türkçe tanılarla 1 olur. Yukarıdaki programın çıktısı `Merhaba Dünya!` olur.
 
 ## Kaynak ve konumlar
 
 Kaynak UTF-8 olarak okunur; bozuk UTF-8 reddedilir. Sözcük çözümlemeden önce tüm içerik NFC biçimine normalleştirilir. Unicode tanımlayıcılar ve küçük harfli ayrılmış sözcükler büyük/küçük harfe duyarlıdır.
 
-Satır ve sütunlar 1'den, ofsetler 0'dan başlar. Konumlar normalleştirilmiş metnin UTF-16 birimlerine göredir; kaynak aralıklarının bitişi dışlayıcıdır. Chevrotain tokenlarında bitiş konumları kapsayıcıdır. LF ve CRLF desteklenir; tek CR de satır sonudur. Yazılar tek satırlıdır; satır sonları `\n` ve `\r` kaçışlarıyla yazılır.
+Satır ve sütunlar 1'den, ofsetler 0'dan başlar. Konumlar normalleştirilmiş metnin UTF-16 birimlerine göredir; kaynak aralıklarının bitişi dışlayıcıdır. Chevrotain tokenlarında bitiş konumları kapsayıcıdır. LF ve CRLF desteklenir; tek CR de satır sonudur. Yazılar tek satırlıdır; satır sonları `\n` ve `\r` kaçışlarıyla yazılır. Desteklenen kaçışlar `\"`, `\\`, `\n`, `\r`, `\t`, `\{` ve `\}` biçimindedir.
 
 Yalnızca onluk tam ve kesirli sayılar desteklenir. AST sayı değerleri JavaScript `number` biçimindedir; sonlu olmayan değerler ve güvenli tam sayı aralığını aşan tam sayı literalleri `ATA2002` tanısı üretir.
 
@@ -55,6 +52,16 @@ Tek ad alanı ve lexical kapsam kullanılır. Aynı kapsamda yinelenen ad redded
 Tipler `sayı`, `yazı`, `mantık`, `hiç`, `liste<T>` ve `T?` biçimindedir. `T` ve `yok`, `T?` tipine atanabilir; tersi geçerli değildir. İç içe isteğe bağlı tip desteklenmez. Açık tip yoksa başlangıç ifadesinden tip çıkarılır; tek başına `yok` veya boş liste yeterli değildir. Açık tip, çağrı argümanı veya dönüş bağlamı boş listelere tip sağlar; `liste<yazı?>` bağlamında `["a", yok]` geçerlidir. Liste tiplerinin eleman tipleri yapısal olarak aynı olmalıdır; liste eşitliği reddedilir. İsteğe bağlı liste ile `yok` karşılaştırılabilir.
 
 Değer döndüren işlevlerde doğrudan dönüş, iki kolu da dönen koşul ve blok sırası üzerinden tüm yollar denetlenir. Döngüler kesin dönüş sayılmaz. Tanımsız adlardan sonra kullanılan iç `bilinmeyen` tipi gereksiz hata zincirlerini bastırır.
+
+## Çalışma zamanı ve yazı yerleştirme
+
+`"Sonuç: {kare(5)}, toplam: {1 + 2}"` içindeki süslü parantezler normal Ata ifadeleri içerir. Yerleştirme lexer modları ve parser üzerinden AST'ye taşınır; çalışma zamanında yeniden ayrıştırma yapılmaz. Düz ve yerleştirmeli yazılar aynı `parçalar` modelini kullanır. Literal parantezler için `"\{değer\}"` yazılır.
+
+`yazdır` ve yerleştirme aynı değer gösterimini kullanır: mantık `doğru`/`yanlış`, eksik isteğe bağlı değer `yok`, liste `[1, 2, 3]` olarak görünür. Listelerde yazı elemanları tırnaklı gösterilir. `hiç`, `yok` değerinden ayrıdır; doğrudan yazdırılamaz veya yerleştirilemez (`ATA4016`). `ve` ve `veya` kısa devrelidir.
+
+`yorumla(program, { yol, çıktıYaz })` analizden geçen AST'yi yürütür ve `{ tanılar }` döndürür; çıktı callback üzerinden iletilir. Her çalıştırma bağımsız lexical ortam kurar. İşlevler küresel ortama bağlanır, çağrılar değiştirilemez parametrelerle yeni ortam açar. `döndür` blok ve döngüler boyunca ayrı akış sonucu olarak taşınır. İlk çalışma zamanı hatasında yürütme durur; önceki çıktılar korunur.
+
+Çalışma zamanı tanıları: `ATA5001` sıfıra bölme, `ATA5002` sıfıra göre kalan, `ATA5003` sonlu olmayan sonuç, `ATA5004` bağlama/ortam sorunu, `ATA5005` beklenmeyen değer veya yürütme durumu, `ATA5006` çağrı derinliği sınırı. JavaScript yığın taşmasını önlemek için en fazla 256 etkin çağrı değerlendirmesi desteklenir. Beklenen çalışma zamanı hataları tanıya çevrilir; beklenmeyen programlama veya çıktı callback hataları yutulmaz.
 
 ## Commit düzeni
 

@@ -28,8 +28,16 @@ Ata, Türkçenin doğal düşünce sırasını sözdizimine yansıtmayı amaçla
 
 **Tip**: Bir ifadenin statik değer sınıfı; tip ifadesinden ayrı anlamsal model.
 
+**Değer**: Yürütme sırasında üretilen Ata sayısı, yazısı, mantığı, listesi, `yok` veya `hiç` sonucu. `hiç` değer döndürmeyen işlev sonucu; `yok` kullanıcıya görünen eksik değerdir.
+
+**Ortam**: Çalışma zamanı adlarını değer ve değiştirilebilirlik bilgisiyle tutan lexical bağlama alanı.
+
+**Yazı parçası**: Bir yazı içindeki sabit metin veya değerlendirilecek Ata ifadesi.
+
 ## Mevcut aşama
 
-Aşama 3 (`0.1.0-dev.3`): Lexer, Chevrotain parser, CST → AST, isim çözümleme ve statik tip denetimi mevcut. Lexical kapsamda tek ad alanı kullanılır; işlevler önceden toplanır, değerler tanımlama sırasına göre görünür. Tip çıkarımı, isteğe bağlı ve liste tipleri, değiştirilebilirlik ve temel dönüş akışı denetlenir. Anlamsal bilgiler AST dışında tablolarda tutulur. Yorumlayıcı henüz yoktur.
+Aşama 4 (`0.1.0-dev.4`): Ön yüz ve statik analizden sonra tree-walk yorumlayıcı program yürütür; `ata çalıştır` gerçek çıktı üretir. Açık çalışma zamanı değer modeli, lexical ortamlar, işlev çağrıları/özyineleme, döngüler ve kısa devreli mantık mevcut. Yazı içi ifade yerleştirme lexer modları → parser → AST üzerinden işler; çalışma zamanında yeniden ayrıştırılmaz. Dönüş ayrı akış sonucudur; çalışma zamanı tanıları `ATA5xxx` kullanır. Çağrı derinliği 256 ile sınırlıdır.
+
+Lexical kapsamda tek ad alanı kullanılır; işlevler önceden toplanır, değerler tanımlama sırasına göre görünür. Tip çıkarımı, isteğe bağlı ve liste tipleri, değiştirilebilirlik ve temel dönüş akışı denetlenir. Anlamsal bilgiler AST dışında tablolarda tutulur. Standart kütüphane ve modül sistemi henüz yoktur.
 
 AST dış kütüphane tokenlarını içermez. Yeni satır veya `;` bildirim sınırıdır; parantez/liste içindeki satır sonları sınır sayılmaz. Oxlint ve Oxfmt kalite kapısına dahildir; `.ata` dosyaları Oxfmt kapsamı dışındadır.

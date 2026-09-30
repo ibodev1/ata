@@ -14,7 +14,7 @@ function komutÇalıştır(...argümanlar: string[]) {
 }
 
 test("CLI sürümü gösterir", () => {
-  expect(komutÇalıştır("sürüm")).toEqual({ kod: 0, çıktı: "Ata Dil 0.1.0-dev.3\n", hata: "" });
+  expect(komutÇalıştır("sürüm")).toEqual({ kod: 0, çıktı: "Ata Dil 0.1.0-dev.4\n", hata: "" });
 });
 
 test("CLI yardımı ve argümansız kullanım Türkçedir", () => {
@@ -26,13 +26,41 @@ test("CLI yardımı ve argümansız kullanım Türkçedir", () => {
   }
 });
 
-test("CLI örnek dosyayı çözümler ve yorumlayıcının olmadığını belirtir", () => {
+test("CLI örnek programı yürütür ve yalnızca gerçek çıktısını gösterir", () => {
   const sonuç = komutÇalıştır("çalıştır", örnekYolu);
   expect(sonuç.kod).toBe(0);
   expect(sonuç.hata).toBe("");
-  expect(sonuç.çıktı).toBe(
-    "Kaynak başarıyla denetlendi: 3 üst seviye bildirim.\nYorumlayıcı henüz uygulanmadı.\n",
-  );
+  expect(sonuç.çıktı).toBe("Merhaba İbrahim!\nAta Dil çalışıyor.\n");
+});
+
+test.each([
+  { metin: "1 / 0 yazdır", kod: "ATA5001" },
+  { metin: "1 % 0 yazdır", kod: "ATA5002" },
+  { metin: 'işlev f(): hiç {}\n"{f()}" yazdır', kod: "ATA4016" },
+])(
+  "CLI çalışma zamanı ve yerleştirme hatasında tanı ve çıkış kodu 1 verir: %j",
+  async ({ metin, kod }) => {
+    const yol = `${örnekYolu}.${crypto.randomUUID()}.ata`;
+    try {
+      await Bun.write(yol, metin);
+      const sonuç = komutÇalıştır("çalıştır", yol);
+      expect(sonuç.kod).toBe(1);
+      expect(sonuç.hata).toContain(`${kod} (hata):`);
+      expect(sonuç.hata).not.toContain("Error:");
+      expect(sonuç.çıktı).toBe("");
+    } finally {
+      await Bun.file(yol).delete();
+    }
+  },
+);
+
+test("CLI temeller örneğinde işlevler, liste, iken ve koşul yürütülür", () => {
+  const yol = Bun.file(new URL("../örnekler/temeller.ata", import.meta.url)).name!;
+  expect(komutÇalıştır("çalıştır", yol)).toEqual({
+    kod: 0,
+    hata: "",
+    çıktı: "Toplam: 15\n1 → 1\n2 → 4\n3 → 9\nSayaç: 0\nSayaç: 1\nSayaç: 2\nTamamlandı.\n",
+  });
 });
 
 test.each([

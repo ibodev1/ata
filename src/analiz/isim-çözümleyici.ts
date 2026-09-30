@@ -66,8 +66,12 @@ export function isimleriÇöz(program: Program, yol = "<kaynak>"): İsimÇözüm
       case "liste":
         ifade.elemanlar.forEach((eleman) => ifadeÇöz(eleman, kapsam));
         break;
-      case "sayı":
       case "yazı":
+        ifade.parçalar.forEach((parça) => {
+          if (parça.tür === "ifade") ifadeÇöz(parça.ifade, kapsam);
+        });
+        break;
+      case "sayı":
       case "mantık":
       case "yok":
         break;

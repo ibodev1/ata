@@ -202,8 +202,8 @@ sayaç < 10 iken {
   expect(sonuç.tokenlar).toHaveLength(26);
 });
 
-test("yazılar ve desteklenen kaçışlar tek token olarak korunur, açıklamalar atlanır", () => {
-  const yazılar = ['""', '"Türkçe: çğıöşü İ"', '"Merhaba {ad}"', String.raw`"\"\\\n\r\t"`];
+test("düz yazılar tek token kalır, yerleştirmeli yazılar modlarla ayrılır, açıklamalar atlanır", () => {
+  const yazılar = ['""', '"Türkçe: çğıöşü İ"', String.raw`"\{ad\}"`, String.raw`"\"\\\n\r\t"`];
   const metin = `// Türkçe açıklama\n${yazılar.join(" ")} /* çok\nsatırlı */ sabit`;
   const sonuç = sözcüklereAyır(kaynakOluştur("yazı.ata", metin));
   expect(sonuç.tanılar).toEqual([]);
@@ -220,7 +220,7 @@ test("kapanmayan yazı ve açıklama ile geçersiz kaçış Türkçe tanı üret
   const sonuç = sözcüklereAyır(kaynakOluştur("hata.ata", '"a\\q" "kapanmadı\n/* kapanmadı'));
   expect(sonuç.tanılar.map((tanı) => tanı.kod)).toEqual(["ATA1003", "ATA1002", "ATA1004"]);
   expect(sonuç.tanılar.map((tanı) => tanı.mesaj)).toEqual([
-    'Geçersiz kaçış dizisi: \\q. Desteklenen kaçışlar: \\", \\\\, \\n, \\r, \\t.',
+    'Geçersiz kaçış dizisi: \\q. Desteklenen kaçışlar: \\", \\\\, \\n, \\r, \\t, \\{, \\}.',
     "Yazı sonlandırılmadı; kapanış çift tırnağı bekleniyor.",
     "Çok satırlı açıklama sonlandırılmadı; '*/' bekleniyor.",
   ]);

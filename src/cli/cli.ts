@@ -2,6 +2,7 @@ import { kaynakOku } from "../kaynak/kaynak.ts";
 import type { Kaynak } from "../kaynak/kaynak.ts";
 import { ayrıştır } from "../ayrıştırıcı/ayrıştırıcı.ts";
 import { analizEt } from "../analiz/analiz.ts";
+import { yorumla } from "../çalışma/yorumlayıcı.ts";
 import { tanıyıGöster } from "../tanılama/göster.ts";
 import { version as sürüm } from "../../package.json";
 
@@ -11,7 +12,7 @@ Kullanım:
   ata <komut> [seçenekler]
 
 Komutlar:
-  çalıştır <dosya>   Ata kaynağını denetle (yorumlayıcı henüz yok)
+  çalıştır <dosya>   Ata programını denetle ve çalıştır
   sürüm              Ata Dil sürümünü göster
   yardım             Bu yardımı göster`;
 
@@ -52,11 +53,12 @@ async function cli(argümanlar: readonly string[]): Promise<number> {
   const analiz = analizEt(sonuç.program!, kaynak.yol);
   for (const tanı of analiz.tanılar) console.error(tanıyıGöster(kaynak, tanı));
   if (analiz.tanılar.some((tanı) => tanı.seviye === "hata")) return 1;
-  console.log(
-    `Kaynak başarıyla denetlendi: ${sonuç.program!.bildirimler.length} üst seviye bildirim.`,
-  );
-  console.log("Yorumlayıcı henüz uygulanmadı.");
-  return 0;
+  const çalışma = yorumla(sonuç.program!, {
+    yol: kaynak.yol,
+    çıktıYaz: (metin) => console.log(metin),
+  });
+  for (const tanı of çalışma.tanılar) console.error(tanıyıGöster(kaynak, tanı));
+  return çalışma.tanılar.some((tanı) => tanı.seviye === "hata") ? 1 : 0;
 }
 
 if (import.meta.main) process.exitCode = await cli(Bun.argv.slice(2));

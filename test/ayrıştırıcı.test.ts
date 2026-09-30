@@ -11,7 +11,7 @@ test("sabit bildirimi AST'de değer, ad ve kaynak aralığı taşır", () => {
     açıkTip: null,
     başlangıç: {
       tür: "yazı",
-      değer: "Ata",
+      parçalar: [{ tür: "metin", değer: "Ata" }],
       aralık: {
         başlangıç: { satır: 1, sütun: 12, ofset: 11 },
         bitiş: { satır: 1, sütun: 17, ofset: 16 },
@@ -189,7 +189,13 @@ test.each([
     metin: "[1, 2, 3]",
     beklenen: { tür: "liste", elemanlar: [{ değer: 1 }, { değer: 2 }, { değer: 3 }] },
   },
-  { metin: '["a", "b"]', beklenen: { tür: "liste", elemanlar: [{ değer: "a" }, { değer: "b" }] } },
+  {
+    metin: '["a", "b"]',
+    beklenen: {
+      tür: "liste",
+      elemanlar: [{ parçalar: [{ değer: "a" }] }, { parçalar: [{ değer: "b" }] }],
+    },
+  },
   {
     metin: "[topla(1, 2), 3]",
     beklenen: { tür: "liste", elemanlar: [{ tür: "çağrı" }, { değer: 3 }] },
@@ -210,7 +216,7 @@ test("gerçek literal değerleri ve desteklenen kaçışlar AST'de çözülür",
   ).toMatchObject([
     { tür: "sayı", değer: 42 },
     { tür: "sayı", değer: 3.14 },
-    { tür: "yazı", değer: 'ç\n\r\t"\\' },
+    { tür: "yazı", parçalar: [{ tür: "metin", değer: 'ç\n\r\t"\\' }] },
     { tür: "mantık", değer: true },
     { tür: "mantık", değer: false },
     { tür: "yok", değer: null },
@@ -223,7 +229,7 @@ test("yazdır, değerli döndür ve boş döndür ayrı bildirimlerdir", () => {
   );
   expect(sonuç.tanılar).toEqual([]);
   expect(sonuç.program?.bildirimler).toMatchObject([
-    { tür: "yazdır", ifade: { değer: "Merhaba" } },
+    { tür: "yazdır", ifade: { parçalar: [{ değer: "Merhaba" }] } },
     { tür: "yazdır", ifade: { ad: "ad" } },
     { tür: "döndür", ifade: { ad: "sonuç" } },
     { tür: "döndür", ifade: null },

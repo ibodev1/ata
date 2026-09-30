@@ -31,6 +31,21 @@ function altlar(düğüm: CstNode, ad: string): CstNode[] {
   return (düğüm.children[ad] ?? []).map((_, sıra) => alt(düğüm, ad, sıra));
 }
 
+function kaçışlarıÇöz(metin: string): string {
+  return metin.replace(/\\(["\\nrt{}])/g, (_, kaçış: string) => {
+    switch (kaçış) {
+      case "n":
+        return "\n";
+      case "r":
+        return "\r";
+      case "t":
+        return "\t";
+      default:
+        return kaçış;
+    }
+  });
+}
+
 export class AstÜreticisi {
   readonly tanılar: Tanı[] = [];
   constructor(private readonly kaynak: Kaynak) {}
@@ -218,6 +233,17 @@ export class AstÜreticisi {
         aralık,
       };
     if (düğüm.children.listeİfadesi) return this.ifade(alt(düğüm, "listeİfadesi"));
+    if (düğüm.children.yerleştirmeliYazı) return this.ifade(alt(düğüm, "yerleştirmeliYazı"));
+    if (düğüm.name === "yerleştirmeliYazı")
+      return {
+        tür: "yazı",
+        aralık,
+        parçalar: altlar(düğüm, "yazıParçası").map((parça) =>
+          parça.children.YazıMetni
+            ? { tür: "metin", değer: kaçışlarıÇöz(token(parça, "YazıMetni").image) }
+            : { tür: "ifade", ifade: this.ifade(alt(parça, "ifade")) },
+        ),
+      };
     if (düğüm.children.ifade) return { ...this.ifade(alt(düğüm, "ifade")), aralık };
     const değer = token(düğüm, "değer");
     switch (değer.tokenType.name) {
@@ -237,18 +263,7 @@ export class AstÜreticisi {
       case "Yazı":
         return {
           tür: "yazı",
-          değer: değer.image.slice(1, -1).replace(/\\(["\\nrt])/g, (_, kaçış: string) => {
-            switch (kaçış) {
-              case "n":
-                return "\n";
-              case "r":
-                return "\r";
-              case "t":
-                return "\t";
-              default:
-                return kaçış;
-            }
-          }),
+          parçalar: [{ tür: "metin", değer: kaçışlarıÇöz(değer.image.slice(1, -1)) }],
           aralık,
         };
       case "doğru":
