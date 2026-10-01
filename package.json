@@ -1,6 +1,6 @@
 {
   "name": "ata",
-  "version": "0.1.0-dev.9",
+  "version": "0.1.0-dev.10",
   "private": true,
   "type": "module",
   "module": "src/index.ts",
@@ -12,7 +12,10 @@
     "lint:fix": "oxlint --fix",
     "format": "oxfmt",
     "format:check": "oxfmt --check",
-    "check": "bun run typecheck && bun run lint && bun run format:check && bun test"
+    "check": "bun run typecheck && bun run lint && bun run format:check && bun test",
+    "build": "bun run scripts/derle.ts",
+    "test:binary": "bun run scripts/binary-smoke.ts",
+    "check:release": "bun run check && bun run build && bun run test:binary"
   },
   "dependencies": {
     "chevrotain": "^13.2.0"

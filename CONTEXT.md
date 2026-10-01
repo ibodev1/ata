@@ -68,7 +68,9 @@ Ata, Türkçenin doğal düşünce sırasını sözdizimine yansıtmayı amaçla
 
 ## Mevcut aşama
 
-Aşama 9 (`0.1.0-dev.9`) tamamlandı: Nominal seçenek türleri, `Tip::üye`, exhaustive postfix `eşleştir` bildirimi ve `diğer` kolu mevcut. Seçenekler yapı/isteğe bağlı/liste tipleriyle bütünleşir; bütün kolları dönen geçerli eşleştirme kesin dönüş sağlar. Payload ve desen bağlama henüz yoktur.
+Aşama 10 (`0.1.0-dev.10`) tamamlandı: Gerçek CLI girişinden Bun standalone derleme, açık platform hedefleri, depo dışında kaynak/binary eşitliği doğrulaması ve ayrı `check:release` kalite kapısı mevcut. GitHub Actions Ubuntu üzerinde Bun 1.4.2 ve kilitli `bun ci` kurulumu kullanır. Dil ve tanı referansları `docs/` altındadır; yeni dil veya çalışma zamanı özelliği eklenmedi.
+
+Nominal seçenek türleri, `Tip::üye`, exhaustive postfix `eşleştir` bildirimi ve `diğer` kolu mevcut. Seçenekler yapı/isteğe bağlı/liste tipleriyle bütünleşir; bütün kolları dönen geçerli eşleştirme kesin dönüş sağlar. Payload ve desen bağlama henüz yoktur.
 
 `sayıya(yazı) → sayı?`, `mantığa(yazı) → mantık?`, `al(liste<T>, sayı) → T?`, `ilk(liste<T>) → T?` ve `son(liste<T>) → T?` mevcut. Güvenli erişim/dönüşüm başarısızlığında `yok` döner; doğrudan `[]` indeksleme strict kalır. Optional elemanlar ikinci optional katman üretmez. Kullanıcı generics sistemi yoktur.
 
