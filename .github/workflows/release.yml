@@ -39,10 +39,21 @@ jobs:
           name: ata-${{ steps.metadata.outputs.version }}-release-candidate
           path: dist/release/*
           if-no-files-found: error
-  verify-linux-x64:
+  verify-unix:
+    name: Unix (${{ matrix.asset }})
     needs: build
-    runs-on: ubuntu-24.04
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            asset: ata-linux-x64
+          - runner: macos-15-intel
+            asset: ata-darwin-x64
+          - runner: macos-15
+            asset: ata-darwin-arm64
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -52,11 +63,12 @@ jobs:
         with:
           name: ata-${{ needs.build.outputs.version }}-release-candidate
           path: dist/release
-      - name: Linux x64 artifact ve yerel installer doğrulaması
+      - name: Unix artifact ve yerel installer doğrulaması
         shell: bash
         env:
           VERSION: ${{ needs.build.outputs.version }}
-        run: sh scripts/yayın-platform-smoke.sh ata-linux-x64 "$VERSION"
+          ASSET: ${{ matrix.asset }}
+        run: sh scripts/yayın-platform-smoke.sh "$ASSET" "$VERSION"
   verify-windows-x64:
     needs: build
     runs-on: windows-latest
@@ -75,50 +87,12 @@ jobs:
         env:
           VERSION: ${{ needs.build.outputs.version }}
         run: ./scripts/yayın-platform-smoke.ps1 -Surum $env:VERSION
-  verify-macos-x64:
-    needs: build
-    runs-on: macos-15-intel
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          ref: ${{ github.sha }}
-          persist-credentials: false
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
-        with:
-          name: ata-${{ needs.build.outputs.version }}-release-candidate
-          path: dist/release
-      - name: Intel macOS x64 artifact ve yerel installer doğrulaması
-        shell: bash
-        env:
-          VERSION: ${{ needs.build.outputs.version }}
-        run: sh scripts/yayın-platform-smoke.sh ata-darwin-x64 "$VERSION"
-  verify-macos-arm64:
-    needs: build
-    runs-on: macos-15
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          ref: ${{ github.sha }}
-          persist-credentials: false
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
-        with:
-          name: ata-${{ needs.build.outputs.version }}-release-candidate
-          path: dist/release
-      - name: Apple Silicon arm64 artifact ve yerel installer doğrulaması
-        shell: bash
-        env:
-          VERSION: ${{ needs.build.outputs.version }}
-        run: sh scripts/yayın-platform-smoke.sh ata-darwin-arm64 "$VERSION"
   publish:
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     needs:
       - build
-      - verify-linux-x64
+      - verify-unix
       - verify-windows-x64
-      - verify-macos-x64
-      - verify-macos-arm64
     runs-on: ubuntu-24.04
     permissions:
       contents: write

@@ -10,6 +10,11 @@ interface Workflow {
       "runs-on": string;
       needs?: string | string[];
       "timeout-minutes"?: number;
+      "continue-on-error"?: boolean;
+      strategy?: {
+        "fail-fast": boolean;
+        matrix: { include: { runner: string; asset: string }[] };
+      };
       if?: string;
       permissions?: { contents: string };
       steps: { uses?: string; run?: string; with?: Record<string, unknown> }[];
@@ -63,12 +68,33 @@ test("CI/release YAML kalite ve en düşük izin sözleşmesini korur", async ()
   expect(release.jobs.publish!.if).toBe(
     "github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')",
   );
+  const unix = release.jobs["verify-unix"]!;
+  expect(unix).toBeDefined();
+  expect(unix.strategy).toEqual({
+    "fail-fast": false,
+    matrix: {
+      include: [
+        { runner: "ubuntu-24.04", asset: "ata-linux-x64" },
+        { runner: "macos-15-intel", asset: "ata-darwin-x64" },
+        { runner: "macos-15", asset: "ata-darwin-arm64" },
+      ],
+    },
+  });
   const platformlar = [
-    ["verify-linux-x64", "ubuntu-24.04", "bash", "ata-linux-x64"],
+    [
+      "verify-unix",
+      "${{ matrix.runner }}",
+      "bash",
+      'sh scripts/yayın-platform-smoke.sh "$ASSET" "$VERSION"',
+    ],
     ["verify-windows-x64", "windows-latest", "pwsh", "yayın-platform-smoke.ps1"],
-    ["verify-macos-x64", "macos-15-intel", "bash", "ata-darwin-x64"],
-    ["verify-macos-arm64", "macos-15", "bash", "ata-darwin-arm64"],
   ] as const;
+  expect(Object.keys(release.jobs)).toEqual([
+    "build",
+    "verify-unix",
+    "verify-windows-x64",
+    "publish",
+  ]);
   expect(release.jobs.publish!.needs).toEqual(["build", ...platformlar.map(([ad]) => ad)]);
   for (const [ad, runner, shell, komut] of platformlar) {
     const job = release.jobs[ad]!;
@@ -76,6 +102,7 @@ test("CI/release YAML kalite ve en düşük izin sözleşmesini korur", async ()
     expect(job["runs-on"]).toBe(runner);
     expect(job.needs).toBe("build");
     expect(job.if).toBeUndefined();
+    expect(job["continue-on-error"]).toBeUndefined();
     expect(job["timeout-minutes"]).toBe(15);
     expect(job.permissions?.contents ?? release.permissions.contents).toBe("read");
     const indirme = job.steps.find((step) => step.uses?.startsWith("actions/download-artifact@"))!;
