@@ -4,7 +4,7 @@ set -eu
 [ "$#" -ge 2 ] && [ "$#" -le 3 ] || { echo 'Kullanım: smoke.sh <asset> <sürüm> [artifact-dizini]' >&2; exit 1; }
 asset=$1
 surum=$2
-kok=$(CDPATH= cd "$(dirname "$0")/.." && pwd)
+kok=$(CDPATH= cd "$(dirname "$0")/.." && pwd -P)
 release=${3:-$kok/dist/release}
 release=$(CDPATH= cd "$release" && pwd)
 os=$(uname -s)
@@ -38,15 +38,21 @@ dogrula() {
 # Installer da çalıştırılmadan önce bağımsız native kontrolünden geçer.
 for ad in "$asset" kur.sh kaldir.sh; do dogrula "$ad"; done
 chmod 755 "$release/$asset"
-gecici=$(mktemp -d "${TMPDIR:-/tmp}/ata-platform.XXXXXX")
-trap 'rm -rf -- "$gecici"' EXIT
+# HOME ve install root sistem TMPDIR'ındaki /var gibi symlink ancestor'ları taşımaz.
+gecici=$(mktemp -d "$kok/.ata-release-smoke.XXXXXX")
+temizle() {
+    case "$gecici" in "$kok"/.ata-release-smoke.??????) ;; *) echo 'Güvensiz smoke cleanup yolu.' >&2; return 1;; esac
+    [ "$(dirname "$gecici")" = "$kok" ] && [ "$gecici" != "${HOME:-}" ] && [ -d "$gecici" ] && [ ! -L "$gecici" ] || return 1
+    rm -rf -- "$gecici"
+}
+trap temizle EXIT
 trap 'exit 1' HUP INT TERM
 cp "$kok/örnekler/eşleştirme.ata" "$gecici/Türkçe örnek.ata"
 cp "$gecici/Türkçe örnek.ata" "$gecici/Unicode deneme.ata"
 printf '\n"Şğİı öçü ✓" yazdır\n' >> "$gecici/Unicode deneme.ata"
 cd "$gecici"
 calistir() {
-    # Mutlak binary yolu + boş child PATH + depo dışı cwd: Bun/kaynak bağımlılığı yok.
+    # Mutlak binary yolu + boş child PATH + yalıtılmış temporary cwd.
     PATH='' "$binary" "$@" > "$gecici/stdout" 2> "$gecici/stderr"
     [ ! -s "$gecici/stderr" ] || { cat "$gecici/stderr" >&2; exit 1; }
 }
@@ -66,7 +72,9 @@ dil_smoke() {
 cp "$release/$asset" "$gecici/ata"
 binary=$gecici/ata
 dil_smoke
+printf 'Native %s standalone smoke başarılı: sürüm/yardım/denetle/çalıştır.\n' "$asset"
 mkdir "$gecici/ev"
+printf 'Installer smoke HOME=%s; kurulum dizini=%s\n' "$gecici/ev" "$gecici/Ata kurulumu"
 HOME=$gecici/ev sh "$release/kur.sh" --version "$surum" --local-file "$release/$asset" --install-dir "$gecici/Ata kurulumu"
 binary="$gecici/Ata kurulumu/ata"
 dil_smoke

@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { chmod, mkdir, mkdtemp, readdir, rm } from "node:fs/promises";
+import { chmod, copyFile, mkdir, mkdtemp, readdir, realpath, rm, symlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -90,6 +90,84 @@ function unixYolu(yol: string) {
 function psYazısı(metin: string) {
   return `'${metin.replaceAll("'", "''")}'`;
 }
+
+test(
+  "sh release smoke symlink TMPDIR'dan bağımsızdır; installer bağlantılı hedefi reddeder",
+  async () => {
+    const geçici = await realpath(await mkdtemp(join(tmpdir(), "ata-smoke-link-")));
+    try {
+      const fiziksel = join(geçici, "physical");
+      const bağlantı = join(geçici, "var");
+      await mkdir(fiziksel);
+      await symlink(fiziksel, bağlantı, windows ? "junction" : "dir");
+      expect(Bun.spawnSync([sh, "-c", 'test -L "$1"', "test", unixYolu(bağlantı)]).exitCode).toBe(
+        0,
+      );
+      await Bun.write(
+        join(geçici, "uname"),
+        '#!/bin/sh\ncase "$1" in -s) echo Linux;; -m) echo x86_64;; esac\n',
+      );
+      await chmod(join(geçici, "uname"), 0o755);
+      const asset = join(geçici, "ata-linux-x64");
+      // CLI dış sınırı fixture'dır; gerçek Linux/macOS binary'si çalıştırılmaz.
+      await Bun.write(
+        asset,
+        '#!/bin/sh\ncase "$1" in\nsürüm) echo "Ata Dil 0.1.0-rc.3";;\nyardım) echo "ata <komut>";;\ndenetle) echo "Denetim başarılı.";;\nçalıştır) printf "İbrahim: yönetici\\n"; case "$2" in *Unicode*) printf "Şğİı öçü ✓\\n";; esac;;\n*) exit 1;;\nesac\n',
+      );
+      await chmod(asset, 0o755);
+      const satırlar = await Promise.all(
+        ["ata-linux-x64", "kur.sh", "kaldir.sh"].map(async (ad) => {
+          if (ad !== "ata-linux-x64") await copyFile(join(kök, "scripts", ad), join(geçici, ad));
+          return `${new Bun.CryptoHasher("sha256").update(await Bun.file(join(geçici, ad)).arrayBuffer()).digest("hex")}  ${ad}\n`;
+        }),
+      );
+      await Bun.write(join(geçici, "SHA256SUMS.txt"), satırlar.join(""));
+      const env = {
+        ...process.env,
+        PATH: `${unixYolu(geçici)}:/usr/bin:/bin`,
+        TMPDIR: unixYolu(bağlantı),
+      };
+      const önce = await readdir(kök);
+      const smokeKomutu = [
+        sh,
+        unixYolu(join(kök, "scripts/yayın-platform-smoke.sh")),
+        "ata-linux-x64",
+        "0.1.0-rc.3",
+        unixYolu(geçici),
+      ];
+      const smoke = Bun.spawnSync(smokeKomutu, { env });
+      expect(smoke.exitCode, smoke.stderr.toString()).toBe(0);
+      expect(smoke.stdout.toString()).toContain("standalone smoke başarılı");
+      expect(await readdir(kök)).toEqual(önce);
+      expect(await readdir(fiziksel)).toEqual([]);
+      const başarısız = Bun.spawnSync(smokeKomutu.with(3, "0.0.0"), { env });
+      expect(başarısız.exitCode).toBe(1);
+      expect(başarısız.stderr.toString()).toContain("Beklenen stdout farklı");
+      expect(await readdir(kök)).toEqual(önce);
+      expect(await readdir(fiziksel)).toEqual([]);
+      const kur = [
+        sh,
+        unixYolu(join(kök, "scripts/kur.sh")),
+        "--local-file",
+        unixYolu(asset),
+        "--install-dir",
+      ];
+      const reddet = Bun.spawnSync([...kur, unixYolu(join(bağlantı, "bin"))], { env });
+      expect(reddet.exitCode).toBe(1);
+      expect(reddet.stderr.toString()).toContain("sembolik bağlantı");
+      const normal = join(fiziksel, "bin");
+      expect(Bun.spawnSync([...kur, unixYolu(normal)], { env }).exitCode).toBe(0);
+      const kaldır = [sh, unixYolu(join(kök, "scripts/kaldir.sh")), "--install-dir"];
+      expect(Bun.spawnSync([...kaldır, unixYolu(join(bağlantı, "bin"))], { env }).exitCode).toBe(1);
+      expect(await Bun.file(join(normal, "ata")).exists()).toBe(true);
+      expect(Bun.spawnSync([...kaldır, unixYolu(normal)], { env }).exitCode).toBe(0);
+      expect(await Bun.file(join(normal, "ata")).exists()).toBe(false);
+    } finally {
+      await rm(geçici, { recursive: true, force: true });
+    }
+  },
+  ENTEGRASYON_ZAMAN_ASIMI_MS,
+);
 
 const ağSenaryoları = (
   windows
