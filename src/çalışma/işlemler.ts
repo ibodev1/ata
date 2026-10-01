@@ -1,6 +1,7 @@
 import type { İkiliİşleç } from "../ast/düğümler.ts";
 import type { KaynakAralığı } from "../kaynak/konum.ts";
 import type { Değer } from "./değer.ts";
+import { seçenekEşleşir } from "./değer.ts";
 import { hata } from "./hata.ts";
 
 export function sayıSonucu(değer: number, aralık: KaynakAralığı): Değer {
@@ -29,8 +30,8 @@ export function ikiliUygula(
     else if (sol.tür === "sayı" && sağ.tür === "sayı") eşit = sol.değer === sağ.değer;
     else if (sol.tür === "yazı" && sağ.tür === "yazı") eşit = sol.değer === sağ.değer;
     else if (sol.tür === "mantık" && sağ.tür === "mantık") eşit = sol.değer === sağ.değer;
-    else if (sol.tür === "seçenek" && sağ.tür === "seçenek" && sol.seçenekAdı === sağ.seçenekAdı)
-      eşit = sol.üyeAdı === sağ.üyeAdı;
+    else if (sol.tür === "seçenek" && sağ.tür === "seçenek" && sol.kimlik === sağ.kimlik)
+      eşit = seçenekEşleşir(sol, sağ);
     else return hata("ATA5005", "Çalışma zamanında bu değerler karşılaştırılamaz.", aralık);
     return { tür: "mantık", değer: işleç === "==" ? eşit : !eşit };
   }

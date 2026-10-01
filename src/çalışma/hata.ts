@@ -1,4 +1,5 @@
 import type { KaynakAralığı } from "../kaynak/konum.ts";
+import type { Tanı } from "../tanılama/tanı.ts";
 
 type ÇalışmaTanıKodu =
   | "ATA5001"
@@ -17,9 +18,21 @@ export class ÇalışmaZamanıHatası extends Error {
     readonly kod: ÇalışmaTanıKodu,
     mesaj: string,
     readonly aralık: KaynakAralığı,
+    readonly yol?: string,
   ) {
     super(mesaj);
   }
+}
+
+export function çalışmaTanısı(yakalanan: unknown, yol: string): Tanı {
+  if (!(yakalanan instanceof ÇalışmaZamanıHatası)) throw yakalanan;
+  return {
+    kod: yakalanan.kod,
+    seviye: "hata",
+    mesaj: yakalanan.message,
+    aralık: yakalanan.aralık,
+    yol: yakalanan.yol ?? yol,
+  };
 }
 
 export function hata(kod: ÇalışmaTanıKodu, mesaj: string, aralık: KaynakAralığı): never {

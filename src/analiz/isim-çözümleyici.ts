@@ -37,6 +37,7 @@ export interface İsimÇözümlemeSonucu {
   readonly yapıAlanları: ReadonlyMap<TipSembolü, ReadonlyMap<string, Tip>>;
   readonly seçenekErişimleri: ReadonlyMap<İfade, SeçenekErişimi>;
   readonly içeAktarımlar: ReadonlyMap<Sembol, DeğerDışaAktarımı>;
+  readonly seçiciBağlar: ReadonlyMap<KullanAdı, Sembol>;
   readonly engellenenAdlar: ReadonlySet<string>;
 }
 
@@ -51,6 +52,7 @@ export function isimleriÇöz(
   const tipBağları = new Map<Tipİfadesi | İfade, TipSembolü>();
   const yapıAlanları = new Map<TipSembolü, ReadonlyMap<string, Tip>>();
   const içeAktarımlar = new Map<Sembol, DeğerDışaAktarımı>();
+  const seçiciBağlar = new Map<KullanAdı, Sembol>();
   const engellenenAdlar = new Set<string>();
   const bildirimSembolleri = new Map<Bildirim | Parametre, Sembol>();
   const programKapsamı = new Kapsam();
@@ -155,6 +157,7 @@ export function isimleriÇöz(
         if (aktarım) {
           seçilenler.add(aktarım.sembol);
           aktar(aktarım);
+          seçiciBağlar.set(seçilen, aktarım.sembol);
           if (!programKapsamı.ekle(aktarım.sembol))
             hata(
               "ATA3002",
@@ -419,6 +422,7 @@ export function isimleriÇöz(
     yapıAlanları,
     seçenekErişimleri,
     içeAktarımlar,
+    seçiciBağlar,
     engellenenAdlar,
   };
 }

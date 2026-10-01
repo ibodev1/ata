@@ -1,9 +1,20 @@
 import type { KaynakAralığı } from "../kaynak/konum.ts";
 import { hata } from "./hata.ts";
+import type { TipSembolü } from "../analiz/tipler.ts";
 
 export type Değer =
-  | { readonly tür: "seçenek"; readonly seçenekAdı: string; readonly üyeAdı: string }
-  | { readonly tür: "yapı"; readonly yapıAdı: string; readonly alanlar: ReadonlyMap<string, Değer> }
+  | {
+      readonly tür: "seçenek";
+      readonly seçenekAdı: string;
+      readonly üyeAdı: string;
+      readonly kimlik: TipSembolü;
+    }
+  | {
+      readonly tür: "yapı";
+      readonly yapıAdı: string;
+      readonly kimlik: TipSembolü;
+      readonly alanlar: ReadonlyMap<string, Değer>;
+    }
   | { readonly tür: "sayı"; readonly değer: number }
   | { readonly tür: "yazı"; readonly değer: string }
   | { readonly tür: "mantık"; readonly değer: boolean }
@@ -11,6 +22,13 @@ export type Değer =
   | { readonly tür: "liste"; readonly elemanlar: readonly Değer[] };
 
 export const hiç: Değer = { tür: "hiç" };
+
+export function seçenekEşleşir(
+  sol: Extract<Değer, { tür: "seçenek" }>,
+  sağ: Extract<Değer, { tür: "seçenek" }>,
+): boolean {
+  return sol.kimlik === sağ.kimlik && sol.üyeAdı === sağ.üyeAdı;
+}
 
 export function yazıyaDönüştür(değer: Değer, aralık: KaynakAralığı): string {
   if (değer.tür === "hiç") return hata("ATA5005", "'hiç' değeri yazıya dönüştürülemez.", aralık);

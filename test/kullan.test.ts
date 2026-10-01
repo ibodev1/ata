@@ -200,23 +200,24 @@ Durum::Aktif eşleştir {
 });
 
 test(
-  "CLI geçerli kullan graph'ını denetler; modül gövdelerini sessizce çalıştırmaz",
+  "CLI geçerli kullan graph'ını denetlerken gövdeleri çalıştırmaz; çalıştır sırasında dependency input'unu okur",
   async () => {
     const geçici = await mkdtemp(join(tmpdir(), "ata-kullan-"));
     try {
       const dosya = join(geçici, "ana.ata");
-      await Bun.write(dosya, '"yardımcı" kullan\n"çalışmamalı" yazdır');
+      await Bun.write(dosya, '"yardımcı" kullan\n"ana" yazdır');
       await Bun.write(join(geçici, "yardımcı.ata"), 'girdi("DEPENDENCY ÇALIŞTI") yazdır');
       const cli = fileURLToPath(new URL("../src/cli/cli.ts", import.meta.url));
       for (const komut of ["denetle", "çalıştır"]) {
-        const sonuç = Bun.spawnSync([process.execPath, "run", cli, komut, dosya], { cwd: geçici });
-        expect(sonuç.exitCode).toBe(komut === "denetle" ? 0 : 1);
-        expect(sonuç.stdout.toString()).toBe(komut === "denetle" ? "Denetim başarılı.\n" : "");
-        expect(sonuç.stderr.toString()).toBe(
-          komut === "denetle"
-            ? ""
-            : "Modül çalışma zamanı bu geliştirme sürümünde henüz desteklenmiyor.\n",
+        const sonuç = Bun.spawnSync([process.execPath, "run", cli, komut, dosya], {
+          cwd: geçici,
+          stdin: Buffer.from("Ata\n"),
+        });
+        expect(sonuç.exitCode).toBe(0);
+        expect(sonuç.stdout.toString()).toBe(
+          komut === "denetle" ? "Denetim başarılı.\n" : "DEPENDENCY ÇALIŞTIAta\nana\n",
         );
+        expect(sonuç.stderr.toString()).toBe("");
       }
     } finally {
       await rm(geçici, { recursive: true, force: true });

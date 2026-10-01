@@ -52,7 +52,11 @@ async function smoke() {
         assert.equal(derlenmiş.çıktı, hataÖncesiÇıktı);
         assert.ok(derlenmiş.hata.length > 0);
         assert.doesNotMatch(derlenmiş.hata, /Error:|\bat .+\(.*:\d+:\d+\)/);
-        if (beklenen !== undefined) assert.ok(derlenmiş.hata.includes(beklenen));
+        if (beklenen !== undefined)
+          assert.ok(
+            derlenmiş.hata.includes(beklenen),
+            `${args.join(" ")}: '${beklenen}' bekleniyordu; alınan tanı: ${derlenmiş.hata}`,
+          );
       }
       sayı++;
     }
@@ -121,22 +125,20 @@ async function smoke() {
     await Bun.write(yardımcı, "sabit pi = 3\nişlev topla(a: sayı, b: sayı): sayı { a + b döndür }");
     for (const giriş of [modülGirişi, resolve(geçici, modülGirişi)]) {
       karşılaştır(["denetle", giriş], 0, "Denetim başarılı.\n");
-      karşılaştır(
-        ["çalıştır", giriş],
-        1,
-        "Modül çalışma zamanı bu geliştirme sürümünde henüz desteklenmiyor.",
-      );
+      karşılaştır(["çalıştır", giriş], 0, "5\n");
     }
     await Bun.write(
       join(geçici, modülGirişi),
       '"yardımcı dosyalar/ölçüler" mat olarak kullan\nmat::topla(mat::pi, 2) yazdır',
     );
     karşılaştır(["denetle", modülGirişi], 0, "Denetim başarılı.\n");
+    karşılaştır(["çalıştır", modülGirişi], 0, "5\n");
     await Bun.write(
       join(geçici, modülGirişi),
       '"yardımcı dosyalar/ölçüler" içinden pi, topla kullan\ntopla(pi, 2) yazdır',
     );
     karşılaştır(["denetle", modülGirişi], 0, "Denetim başarılı.\n");
+    karşılaştır(["çalıştır", modülGirişi], 0, "5\n");
     for (const [gövde, kod] of [
       ['"yardımcı dosyalar/ölçüler" kullan\nölçüler::olmayan()', "ATA6004"],
       ['"yardımcı dosyalar/ölçüler" kullan\nölçüler yazdır', "ATA4035"],
@@ -160,22 +162,47 @@ async function smoke() {
       '"yardımcı dosyalar/ölçüler" mat olarak kullan\nsabit k: mat::K = mat::K { x: 1 }\nk.x yazdır',
     );
     karşılaştır(["denetle", modülGirişi], 0, "Denetim başarılı.\n");
-    karşılaştır(
-      ["çalıştır", modülGirişi],
-      1,
-      "Modül çalışma zamanı bu geliştirme sürümünde henüz desteklenmiyor.",
-    );
+    karşılaştır(["çalıştır", modülGirişi], 0, "1\n");
     await Bun.write(
       join(geçici, modülGirişi),
       '"yardımcı dosyalar/ölçüler" içinden K kullan\nsabit k: K = K { x: 1 }',
     );
     karşılaştır(["denetle", modülGirişi], 0, "Denetim başarılı.\n");
+    karşılaştır(["çalıştır", modülGirişi], 0, "");
     await Bun.write(join(geçici, "geçici testler/modüller/durumlar.ata"), "seçenek D { a, b }");
     await Bun.write(
       join(geçici, modülGirişi),
-      '"durumlar" kullan\nsabit d: durumlar::D = durumlar::D::a\nd eşleştir { durumlar::D::a ise {} durumlar::D::b ise {} }',
+      '"durumlar" kullan\nsabit d: durumlar::D = durumlar::D::a\nd eşleştir { durumlar::D::a ise { "a" yazdır } durumlar::D::b ise { "b" yazdır } }',
     );
     karşılaştır(["denetle", modülGirişi], 0, "Denetim başarılı.\n");
+    karşılaştır(["çalıştır", modülGirişi], 0, "a\n");
+    await Promise.all([
+      Bun.write(
+        join(geçici, "geçici testler/modüller/ortak.ata"),
+        '"ortak" yazdır\ndeğişken n = 0\nişlev artır(): sayı { n += 1; n döndür }',
+      ),
+      Bun.write(
+        join(geçici, "geçici testler/modüller/a.ata"),
+        '"ortak" kullan\n"a" yazdır\nişlev çağır(): sayı { ortak::artır() döndür }',
+      ),
+      Bun.write(
+        join(geçici, "geçici testler/modüller/b.ata"),
+        '"./ortak" içinden artır kullan\n"b" yazdır\nişlev çağır(): sayı { artır() döndür }',
+      ),
+      Bun.write(
+        join(geçici, modülGirişi),
+        '"a" kullan\n"b" kullan\n"ana" yazdır\na::çağır() yazdır\nb::çağır() yazdır',
+      ),
+    ]);
+    karşılaştır(["çalıştır", modülGirişi], 0, "ortak\na\nb\nana\n1\n2\n");
+    await Bun.write(
+      join(geçici, "geçici testler/modüller/hatalı.ata"),
+      "// hata\nişlev böl(x: sayı): sayı { x / 0 döndür }",
+    );
+    await Bun.write(join(geçici, modülGirişi), '"hatalı" kullan\nhatalı::böl(1) yazdır');
+    karşılaştır(["çalıştır", modülGirişi], 1, "hatalı.ata:2:28");
+    await Bun.write(join(geçici, modülGirişi), '"hatalı" kullan\nhatalı::böl(1 / 0) yazdır');
+    karşılaştır(["çalıştır", modülGirişi], 1, "ana.ata:2:13");
     await Bun.write(join(geçici, "geçici testler/modüller/başka.ata"), "yapı K { x: sayı }");
     await Bun.write(
       join(geçici, modülGirişi),

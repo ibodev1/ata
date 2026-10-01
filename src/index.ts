@@ -40,4 +40,5 @@ export type { TipDenetlemeSonucu } from "./analiz/tip-denetleyici.ts";
 export type { Tip, İşlevİmzası, NominalTip, TipSembolü } from "./analiz/tipler.ts";
 export type { Sembol } from "./analiz/kapsam.ts";
 export { yorumla } from "./çalışma/yorumlayıcı.ts";
+export { modülleriYorumla } from "./çalışma/modüller.ts";
 export type { YorumlamaSeçenekleri, YorumlamaSonucu } from "./çalışma/yorumlayıcı.ts";

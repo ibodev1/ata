@@ -2,7 +2,7 @@ import { modülleriYükle } from "../modüller/yükleyici.ts";
 import { modülGörünenYolu } from "../modüller/yol.ts";
 import type { Tanı } from "../tanılama/tanı.ts";
 import { modülleriAnalizEt } from "../analiz/modüller.ts";
-import { yorumla } from "../çalışma/yorumlayıcı.ts";
+import { modülleriYorumla } from "../çalışma/modüller.ts";
 import { tanıyıGöster } from "../tanılama/göster.ts";
 import { version as sürüm } from "../../package.json";
 import { girdiOku } from "./girdi.ts";
@@ -67,12 +67,7 @@ async function cli(argümanlar: readonly string[]): Promise<number> {
     console.log("Denetim başarılı.");
     return 0;
   }
-  if (grafik.giriş.program.kullanBildirimleri.length > 0) {
-    console.error("Modül çalışma zamanı bu geliştirme sürümünde henüz desteklenmiyor.");
-    return 1;
-  }
-  const çalışma = yorumla(grafik.giriş.program, {
-    yol: grafik.giriş.kanonikYol,
+  const çalışma = modülleriYorumla(grafik, analiz, {
     çıktıYaz: (metin) => console.log(metin),
     girdiOku,
   });

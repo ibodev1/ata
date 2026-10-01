@@ -1,16 +1,11 @@
-import type {
-  Program,
-  Bildirim,
-  İfade,
-  Blok,
-  YapıBildirimi,
-  SeçenekBildirimi,
-} from "../ast/düğümler.ts";
+import type { Program, Bildirim, İfade, Blok } from "../ast/düğümler.ts";
 import type { Tanı } from "../tanılama/tanı.ts";
 import type { Değer } from "./değer.ts";
-import { yazıyaDönüştür, hiç } from "./değer.ts";
+import { yazıyaDönüştür, hiç, seçenekEşleşir } from "./değer.ts";
 import { Ortam } from "./ortam.ts";
-import { ÇalışmaZamanıHatası, hata } from "./hata.ts";
+import type { Bağ, ÇalışmaBağlamı } from "./ortam.ts";
+import type { TipSembolü } from "../analiz/tipler.ts";
+import { ÇalışmaZamanıHatası, çalışmaTanısı, hata } from "./hata.ts";
 import { sayıSonucu, mantıkAl, ikiliUygula } from "./işlemler.ts";
 import { yerleşikler, yerleşiğiÇağır } from "../standart/yerleşikler.ts";
 import type { GirdiOku } from "../standart/yerleşikler.ts";
@@ -29,33 +24,94 @@ type Akış = { readonly tür: "devam" } | { readonly tür: "dönüş"; readonly
 const devam: Akış = { tür: "devam" };
 
 export function yorumla(program: Program, seçenekler: YorumlamaSeçenekleri): YorumlamaSonucu {
+  const tipler = new Map<string, TipSembolü>();
+  const yol = seçenekler.yol ?? "<kaynak>";
+  for (const bildirim of program.bildirimler)
+    if (bildirim.tür === "yapı" || bildirim.tür === "seçenek")
+      tipler.set(bildirim.ad, { modülYolu: yol, bildirim });
+  try {
+    yorumlayıcıOluştur(seçenekler)(program, { yol, tipler, aktarımlar: new Map() });
+    return { tanılar: [] };
+  } catch (yakalanan) {
+    return { tanılar: [çalışmaTanısı(yakalanan, yol)] };
+  }
+}
+
+// Bir yürütme oturumu: modüller ve işlev çağrıları aynı servisleri ve derinlik bütçesini paylaşır.
+export function yorumlayıcıOluştur(seçenekler: YorumlamaSeçenekleri) {
   let çağrıDerinliği = 0;
-  const tipBildirimleri = new Map<string, YapıBildirimi | SeçenekBildirimi>();
+  let bağlam: ÇalışmaBağlamı;
+  function bağlamda<T>(hedef: ÇalışmaBağlamı, çalıştır: () => T): T {
+    const önceki = bağlam;
+    bağlam = hedef;
+    try {
+      return çalıştır();
+    } catch (yakalanan) {
+      if (yakalanan instanceof ÇalışmaZamanıHatası && yakalanan.yol === undefined)
+        throw new ÇalışmaZamanıHatası(
+          yakalanan.kod,
+          yakalanan.message,
+          yakalanan.aralık,
+          hedef.yol,
+        );
+      throw yakalanan;
+    } finally {
+      bağlam = önceki;
+    }
+  }
+  function aktarımBağı(ifade: İfade): Bağ {
+    const sembol = bağlam.isimler?.bağlar.get(ifade);
+    const bağ = sembol && bağlam.aktarımlar.get(sembol);
+    if (!bağ) return hata("ATA5005", "Çözülen çalışma zamanı export'u bulunamadı.", ifade.aralık);
+    return bağ;
+  }
+  function seçenekDeğeri(ifade: Extract<İfade, { tür: "nitelikli-ad" | "seçenek-değeri" }>): Değer {
+    const erişim = bağlam.isimler?.seçenekErişimleri.get(ifade);
+    const yerelAd =
+      ifade.tür === "seçenek-değeri"
+        ? ifade.seçenekAdı
+        : ifade.parçalar.length === 2
+          ? ifade.parçalar[0].ad
+          : undefined;
+    const kimlik = bağlam.isimler ? erişim?.tip : yerelAd ? bağlam.tipler.get(yerelAd) : undefined;
+    const üye = bağlam.isimler
+      ? erişim?.üye.ad
+      : ifade.tür === "seçenek-değeri"
+        ? ifade.üyeAdı
+        : ifade.parçalar[1].ad;
+    const bildirim = kimlik?.bildirim;
+    if (
+      !kimlik ||
+      bildirim?.tür !== "seçenek" ||
+      !üye ||
+      !bildirim.üyeler.some((aday) => aday.ad === üye)
+    )
+      return hata("ATA5005", "Çalışma zamanında geçersiz seçenek değeri.", ifade.aralık);
+    return { tür: "seçenek", seçenekAdı: bildirim.ad, üyeAdı: üye, kimlik };
+  }
   function değerlendir(ifade: İfade, ortam: Ortam): Değer {
     switch (ifade.tür) {
       case "nitelikli-ad": {
-        if (ifade.parçalar.length !== 2)
-          return hata("ATA5005", "Çalışma zamanında geçersiz seçenek değeri.", ifade.aralık);
-        return değerlendir(
-          {
-            tür: "seçenek-değeri",
-            seçenekAdı: ifade.parçalar[0].ad,
-            üyeAdı: ifade.parçalar[1].ad,
-            aralık: ifade.aralık,
-          },
-          ortam,
-        );
+        if (bağlam.isimler && !bağlam.isimler.seçenekErişimleri.has(ifade)) {
+          const bağ = aktarımBağı(ifade);
+          if (bağ.tür !== "değer")
+            return hata("ATA5005", "İşlev yalnızca çağrı hedefi olabilir.", ifade.aralık);
+          return bağ.değer;
+        }
+        return seçenekDeğeri(ifade);
       }
       case "seçenek-değeri": {
-        const seçenek = tipBildirimleri.get(ifade.seçenekAdı);
-        if (seçenek?.tür !== "seçenek" || !seçenek.üyeler.some((üye) => üye.ad === ifade.üyeAdı))
-          return hata("ATA5005", "Çalışma zamanında geçersiz seçenek değeri.", ifade.aralık);
-        return { tür: "seçenek", seçenekAdı: seçenek.ad, üyeAdı: ifade.üyeAdı };
+        return seçenekDeğeri(ifade);
       }
       case "yapı-oluşturma": {
         const yapıAdı = ifade.yapıYolu[0].ad;
-        const yapı = ifade.yapıYolu.length === 1 ? tipBildirimleri.get(yapıAdı) : undefined;
-        if (yapı?.tür !== "yapı")
+        const kimlik = bağlam.isimler
+          ? bağlam.isimler.tipBağları.get(ifade)
+          : ifade.yapıYolu.length === 1
+            ? bağlam.tipler.get(yapıAdı)
+            : undefined;
+        const yapı = kimlik?.bildirim;
+        if (!kimlik || yapı?.tür !== "yapı")
           return hata(
             "ATA5005",
             `Çalışma zamanı yapı tipi bulunamadı: '${yapıAdı}'.`,
@@ -69,7 +125,7 @@ export function yorumla(program: Program, seçenekler: YorumlamaSeçenekleri): Y
         }
         if (yapı.alanlar.some((alan) => !alanlar.has(alan.ad)))
           return hata("ATA5005", "Çalışma zamanında yapı alanı eksik.", ifade.aralık);
-        return { tür: "yapı", yapıAdı: yapı.ad, alanlar };
+        return { tür: "yapı", yapıAdı: yapı.ad, kimlik, alanlar };
       }
       case "alan-erişim": {
         const hedef = değerlendir(ifade.hedef, ortam);
@@ -160,9 +216,12 @@ export function yorumla(program: Program, seçenekler: YorumlamaSeçenekleri): Y
         return değer;
       }
       case "çağrı": {
-        if (ifade.çağrılan.tür !== "tanımlayıcı")
+        if (ifade.çağrılan.tür !== "tanımlayıcı" && ifade.çağrılan.tür !== "nitelikli-ad")
           return hata("ATA5005", "Çağrı hedefi işlev adı olmalıdır.", ifade.çağrılan.aralık);
-        const bağ = ortam.bul(ifade.çağrılan.ad, ifade.çağrılan.aralık);
+        const bağ =
+          ifade.çağrılan.tür === "nitelikli-ad"
+            ? aktarımBağı(ifade.çağrılan)
+            : ortam.bul(ifade.çağrılan.ad, ifade.çağrılan.aralık);
         if (bağ.tür === "yerleşik")
           return yerleşiğiÇağır(
             bağ.işlev,
@@ -187,7 +246,9 @@ export function yorumla(program: Program, seçenekler: YorumlamaSeçenekleri): Y
               parametre.aralık,
             ),
           );
-          const akış = bildirimleriYürüt(bağ.bildirim.blok.bildirimler, çağrıOrtamı);
+          const akış = bağlamda(bağ.bağlam, () =>
+            bildirimleriYürüt(bağ.bildirim.blok.bildirimler, çağrıOrtamı),
+          );
           const değer = akış.tür === "dönüş" ? akış.değer : hiç;
           const değerBekleniyor =
             bağ.bildirim.dönüşTipi.tür !== "temel-tip" || bağ.bildirim.dönüşTipi.ad !== "hiç";
@@ -247,15 +308,11 @@ export function yorumla(program: Program, seçenekler: YorumlamaSeçenekleri): Y
             "Eşleştir hedefi seçenek değeri olmalıdır.",
             bildirim.hedef.aralık,
           );
-        const kol = bildirim.kollar.find(
-          (aday) =>
-            aday.desen.tür === "diğer" ||
-            (aday.desen.tür === "seçenek-değeri"
-              ? aday.desen.seçenekAdı === hedef.seçenekAdı && aday.desen.üyeAdı === hedef.üyeAdı
-              : aday.desen.parçalar.length === 2 &&
-                aday.desen.parçalar[0].ad === hedef.seçenekAdı &&
-                aday.desen.parçalar[1].ad === hedef.üyeAdı),
-        );
+        const kol = bildirim.kollar.find((aday) => {
+          if (aday.desen.tür === "diğer") return true;
+          const desen = seçenekDeğeri(aday.desen);
+          return desen.tür === "seçenek" && seçenekEşleşir(hedef, desen);
+        });
         if (!kol)
           return hata(
             "ATA5005",
@@ -304,43 +361,42 @@ export function yorumla(program: Program, seçenekler: YorumlamaSeçenekleri): Y
     return devam;
   }
 
-  try {
-    const küresel = new Ortam();
-    for (const işlev of yerleşikler)
-      küresel.tanımla(işlev.ad, { tür: "yerleşik", işlev }, program.aralık);
-    for (const bildirim of program.bildirimler) {
-      if (bildirim.tür === "yapı" || bildirim.tür === "seçenek") {
-        const adlar = bildirim.tür === "yapı" ? bildirim.alanlar : bildirim.üyeler;
-        if (
-          tipBildirimleri.has(bildirim.ad) ||
-          new Set(adlar.map((öğe) => öğe.ad)).size !== adlar.length ||
-          (bildirim.tür === "seçenek" && adlar.length === 0)
-        )
-          hata(
-            "ATA5005",
-            `Geçersiz çalışma zamanı tip bildirimi: '${bildirim.ad}'.`,
+  return (program: Program, modül: ÇalışmaBağlamı): Ortam =>
+    bağlamda(modül, () => {
+      const küresel = new Ortam();
+      const tipAdları = new Set<string>();
+      for (const işlev of yerleşikler)
+        küresel.tanımla(işlev.ad, { tür: "yerleşik", işlev }, program.aralık);
+      for (const [ad, sembol] of modül.isimler?.seçiciBağlar ?? []) {
+        const bağ = modül.aktarımlar.get(sembol);
+        if (!bağ || bağ.tür === "yerleşik" || (bağ.tür === "değer" && bağ.değiştirilebilir))
+          hata("ATA5005", "Geçersiz seçici çalışma zamanı bağı.", ad.aralık);
+        küresel.tanımla(ad.ad, bağ, ad.aralık);
+      }
+      for (const bildirim of program.bildirimler) {
+        if (bildirim.tür === "yapı" || bildirim.tür === "seçenek") {
+          const adlar = bildirim.tür === "yapı" ? bildirim.alanlar : bildirim.üyeler;
+          if (
+            tipAdları.has(bildirim.ad) ||
+            new Set(adlar.map((öğe) => öğe.ad)).size !== adlar.length ||
+            (bildirim.tür === "seçenek" && adlar.length === 0)
+          )
+            hata(
+              "ATA5005",
+              `Geçersiz çalışma zamanı tip bildirimi: '${bildirim.ad}'.`,
+              bildirim.aralık,
+            );
+          tipAdları.add(bildirim.ad);
+        }
+        if (bildirim.tür === "işlev")
+          küresel.tanımla(
+            bildirim.ad,
+            { tür: "işlev", bildirim, ortam: küresel, bağlam: modül },
             bildirim.aralık,
           );
-        tipBildirimleri.set(bildirim.ad, bildirim);
       }
-      if (bildirim.tür === "işlev")
-        küresel.tanımla(bildirim.ad, { tür: "işlev", bildirim, ortam: küresel }, bildirim.aralık);
-    }
-    const akış = bildirimleriYürüt(program.bildirimler, küresel);
-    if (akış.tür === "dönüş") hata("ATA5005", "İşlev dışında dönüş yapılamaz.", program.aralık);
-    return { tanılar: [] };
-  } catch (yakalanan) {
-    if (!(yakalanan instanceof ÇalışmaZamanıHatası)) throw yakalanan;
-    return {
-      tanılar: [
-        {
-          kod: yakalanan.kod,
-          seviye: "hata",
-          mesaj: yakalanan.message,
-          aralık: yakalanan.aralık,
-          yol: seçenekler.yol ?? "<kaynak>",
-        },
-      ],
-    };
-  }
+      const akış = bildirimleriYürüt(program.bildirimler, küresel);
+      if (akış.tür === "dönüş") hata("ATA5005", "İşlev dışında dönüş yapılamaz.", program.aralık);
+      return küresel;
+    });
 }

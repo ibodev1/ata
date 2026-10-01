@@ -823,7 +823,7 @@ test("namespace ve selective erişim aynı gerçek export sembolünü ve çözü
 });
 
 test(
-  "CLI namespace statik çağrısını denetler; doğru program runtime'a geçmez",
+  "CLI namespace çağrısını denetler ve doğru programı çalıştırır",
   async () => {
     await proje(
       {
@@ -836,13 +836,11 @@ test(
           const sonuç = Bun.spawnSync([process.execPath, "run", cli, komut, join(kök, "ana.ata")], {
             cwd: tmpdir(),
           });
-          expect(sonuç.exitCode).toBe(komut === "denetle" ? 0 : 1);
-          expect(sonuç.stdout.toString()).toBe(komut === "denetle" ? "Denetim başarılı.\n" : "");
-          expect(sonuç.stderr.toString()).toBe(
-            komut === "denetle"
-              ? ""
-              : "Modül çalışma zamanı bu geliştirme sürümünde henüz desteklenmiyor.\n",
+          expect(sonuç.exitCode).toBe(0);
+          expect(sonuç.stdout.toString()).toBe(
+            komut === "denetle" ? "Denetim başarılı.\n" : "30\n",
           );
+          expect(sonuç.stderr.toString()).toBe("");
         }
       },
     );
@@ -851,7 +849,7 @@ test(
 );
 
 test(
-  "CLI alias ve selective denetle başarılıdır; static hatalar runtime engelinden önce doğru span'da gösterilir",
+  "CLI alias ve selective denetle başarılıdır; static hatalar yürütmeden önce doğru span'da gösterilir",
   async () => {
     await proje(
       { "ana.ata": '"matematik" kullan', "matematik.ata": matematik, "foo-bar.ata": matematik },
@@ -897,16 +895,16 @@ test(
 );
 
 test(
-  "CLI nominal public yüzey ve gerçek type import'unu denetler; runtime kapalı kalır",
+  "CLI nominal public yüzey ve gerçek type import'unu denetler ve çalıştırır",
   async () => {
     await proje(
       { "ana.ata": '"modeller" kullan', "modeller.ata": modeller },
       async (_sonuç, kök) => {
         const cli = fileURLToPath(new URL("../src/cli/cli.ts", import.meta.url));
-        for (const gövde of [
-          '"modeller" kullan\nmodeller::kişi_al() yazdır',
-          '"modeller" içinden K kullan\nsabit k: K = K { n: 1 }',
-        ]) {
+        for (const [gövde, çıktı] of [
+          ['"modeller" kullan\nmodeller::kişi_al() yazdır', "K { n: 1 }\n"],
+          ['"modeller" içinden K kullan\nsabit k: K = K { n: 1 }', ""],
+        ] as const) {
           // eslint-disable-next-line no-await-in-loop -- Nominal kullanım biçimleri ayrı CLI çağrılarında doğrulanır.
           await Bun.write(join(kök, "ana.ata"), gövde);
           const sonuç = Bun.spawnSync(
@@ -925,11 +923,9 @@ test(
             "çalıştır",
             join(kök, "ana.ata"),
           ]);
-          expect(yürütme.exitCode).toBe(1);
-          expect(yürütme.stdout.toString()).toBe("");
-          expect(yürütme.stderr.toString()).toBe(
-            "Modül çalışma zamanı bu geliştirme sürümünde henüz desteklenmiyor.\n",
-          );
+          expect(yürütme.exitCode).toBe(0);
+          expect(yürütme.stdout.toString()).toBe(çıktı);
+          expect(yürütme.stderr.toString()).toBe("");
         }
       },
     );
