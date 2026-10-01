@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { resolve } from "node:path";
+import { ENTEGRASYON_ZAMAN_ASIMI_MS } from "./entegrasyon.ts";
 
 const windows = process.platform === "win32";
 const kabuklar = windows
@@ -71,4 +72,5 @@ Write-Output "Mimari regresyonu başarılı: $($PSVersionTable.PSVersion)"
     expect(sonuç.exitCode, sonuç.stderr.toString() || sonuç.stdout.toString()).toBe(0);
     expect(sonuç.stdout.toString()).toContain("Mimari regresyonu başarılı");
   },
+  ENTEGRASYON_ZAMAN_ASIMI_MS,
 );

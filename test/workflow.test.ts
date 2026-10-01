@@ -7,6 +7,7 @@ interface Workflow {
   jobs: Record<
     string,
     {
+      "runs-on": string;
       if?: string;
       permissions?: { contents: string };
       steps: { uses?: string; run?: string; with?: Record<string, unknown> }[];
@@ -46,6 +47,10 @@ test("CI/release YAML kalite ve en düşük izin sözleşmesini korur", async ()
     await Bun.file(resolve(kök, ".github/workflows/ci.yml")).text(),
   ) as Workflow;
   expect(ci.on).toEqual(["push", "pull_request"]);
+  expect(ci.jobs.check!["runs-on"]).toBe("ubuntu-24.04");
+  expect(ci.jobs["windows-installer"]!["runs-on"]).toBe("windows-latest");
+  expect(release.jobs.build!["runs-on"]).toBe("ubuntu-24.04");
+  expect(release.jobs.publish!["runs-on"]).toBe("ubuntu-24.04");
   expect(ci.permissions.contents).toBe("read");
   expect(release.on).toEqual({ workflow_dispatch: null, push: { tags: ["v*"] } });
   expect(release.permissions.contents).toBe("read");
