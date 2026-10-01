@@ -23,14 +23,13 @@ function windowsKomutu(pwsh: string, script: string, dizin: string, yerel?: stri
   return [pwsh, "-NoProfile", "-Command", komut];
 }
 
-async function smoke() {
+async function smoke(pwsh = "") {
   const windows = process.platform === "win32";
   const asset = assetSeç(process.platform, process.arch);
   const release = resolve(projeKökü, "dist/release");
   const geçici = await mkdtemp(join(tmpdir(), "ata-installer-"));
   const yol = join(geçici, "Ata kurulumu şğ");
   const ata = join(yol, windows ? "ata.exe" : "ata");
-  const pwsh = windows ? (Bun.which("pwsh") ?? "powershell.exe") : "";
   const pathOku = [
     pwsh,
     "-NoProfile",
@@ -94,7 +93,7 @@ async function smoke() {
     assert.equal(await Bun.file(ata).text(), "Ata olmayan dosya");
     if (windows) assert.equal(çalıştır(pathOku), öncekiUserPath);
     console.log(
-      `${windows ? "Windows" : process.platform} installer smoke başarılı: install/upgrade/binary/uninstall; checksum hataları ve yabancı dosya korunumu; PATH değiştirilmedi.`,
+      `${windows ? `Windows (${pwsh})` : process.platform} installer smoke başarılı: install/upgrade/binary/uninstall; checksum hataları ve yabancı dosya korunumu; PATH değiştirilmedi.`,
     );
   } finally {
     // OS temp altında bu işlem için oluşturulan tek dizin.
@@ -109,7 +108,13 @@ function çalıştırManifest(metin: string, yol: string, komut: string[]) {
 }
 
 try {
-  await smoke();
+  if (process.platform === "win32") {
+    const kabuklar = [
+      resolve(process.env.WINDIR!, "System32/WindowsPowerShell/v1.0/powershell.exe"),
+      "pwsh",
+    ];
+    await kabuklar.reduce((önce, kabuk) => önce.then(() => smoke(kabuk)), Promise.resolve());
+  } else await smoke();
 } catch (hata) {
   console.error(hata instanceof Error ? hata.message : "Installer smoke başarısız.");
   process.exitCode = 1;

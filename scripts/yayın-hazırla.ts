@@ -65,7 +65,7 @@ async function hazırla() {
       const metin = kaynak
         .replace(/^\uFEFF/, "")
         .replaceAll("\r\n", "\n")
-        .replace(/0\.1\.0-rc\.1/g, version)
+        .replace(/(\$Surum = |surum=)'[^']*'/g, `$1'${version}'`)
         .replaceAll("ibodev1/ata", yayınDeposu);
       await Bun.write(resolve(yayınDizini, ad), ad.endsWith(".ps1") ? `\uFEFF${metin}` : metin);
       if (ad.endsWith(".sh")) await chmod(resolve(yayınDizini, ad), 0o755);

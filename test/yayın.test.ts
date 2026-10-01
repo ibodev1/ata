@@ -53,7 +53,11 @@ test("RC URL ve tag eşleşmesi güvenli biçimde doğrulanır", () => {
     "https://github.com/ibodev1/ata/releases/download/v0.1.0-rc.1/ata-windows-x64.exe",
   );
   expect(() => tagDoğrula("v0.1.0")).toThrow("uyuşmazlığı");
-  expect(() => tagDoğrula("v0.1.0-rc.1")).not.toThrow();
+  expect(() => tagDoğrula("v0.1.0-rc.1")).toThrow("uyuşmazlığı");
+  expect(() => tagDoğrula("v0.1.0-rc.2")).not.toThrow();
+  expect(yayınUrl("ata-windows-x64.exe")).toBe(
+    "https://github.com/ibodev1/ata/releases/download/v0.1.0-rc.2/ata-windows-x64.exe",
+  );
   expect(() => yayınUrl("../ata", "0.1.0-rc.1")).toThrow();
   expect(() => yayınUrl("kur.sh", "0.1.0-rc.1", "owner/repo/yanlış")).toThrow();
   expect(() => yayınTagi("../../yanlış")).toThrow();

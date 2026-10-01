@@ -26,9 +26,18 @@ function psYazısı(metin: string) {
   return `'${metin.replaceAll("'", "''")}'`;
 }
 
-test.each([{ ilk: true }, { ilk: false }])(
+const ağSenaryoları = (
+  windows
+    ? [resolve(process.env.WINDIR!, "System32/WindowsPowerShell/v1.0/powershell.exe"), "pwsh"]
+    : ["sh"]
+).flatMap((kabuk) => [
+  { ilk: true, kabuk },
+  { ilk: false, kabuk },
+]);
+
+test.each(ağSenaryoları)(
   "ağ installer URL’si doğru ve HTTP hatasında kurulum durur: %j",
-  async ({ ilk }) => {
+  async ({ ilk, kabuk }) => {
     const geçici = await mkdtemp(join(tmpdir(), "ata-http-test-"));
     try {
       const dizin = join(geçici, "bin");
@@ -40,10 +49,9 @@ test.each([{ ilk: true }, { ilk: false }])(
           giriş,
           `function Invoke-WebRequest { param($Uri, $OutFile, [switch]$UseBasicParsing)\nAdd-Content -LiteralPath ${psYazısı(kayıt)} -Value $Uri\nif (${ilk ? "$true" : "$Uri.EndsWith('/SHA256SUMS.txt')"}) { throw 'HTTP 404' }\n[IO.File]::WriteAllText($OutFile, 'abc')\n}\n& ${psYazısı(join(kök, "scripts/kur.ps1"))} -KurulumDizini ${psYazısı(dizin)} -PathGuncelle:$false\nexit $LASTEXITCODE\n`,
         );
-        sonuç = Bun.spawnSync(
-          [Bun.which("pwsh") ?? "powershell.exe", "-NoProfile", "-File", giriş],
-          { env: { ...process.env, ATA_REPO: "ibodev1/ata" } },
-        );
+        sonuç = Bun.spawnSync([kabuk, "-NoProfile", "-File", giriş], {
+          env: { ...process.env, ATA_REPO: "ibodev1/ata" },
+        });
       } else {
         await Bun.write(
           join(geçici, "uname"),
@@ -68,9 +76,9 @@ test.each([{ ilk: true }, { ilk: false }])(
       const asset = windows ? "ata-windows-x64.exe" : "ata-linux-x64";
       const urls = (await Bun.file(kayıt).text()).trim().split(/\r?\n/);
       expect(urls).toEqual([
-        `https://github.com/ibodev1/ata/releases/download/v0.1.0-rc.1/${asset}`,
+        `https://github.com/ibodev1/ata/releases/download/v0.1.0-rc.2/${asset}`,
         ...(!ilk
-          ? ["https://github.com/ibodev1/ata/releases/download/v0.1.0-rc.1/SHA256SUMS.txt"]
+          ? ["https://github.com/ibodev1/ata/releases/download/v0.1.0-rc.2/SHA256SUMS.txt"]
           : []),
       ]);
     } finally {
