@@ -8,6 +8,8 @@ interface Workflow {
     string,
     {
       "runs-on": string;
+      needs?: string | string[];
+      "timeout-minutes"?: number;
       if?: string;
       permissions?: { contents: string };
       steps: { uses?: string; run?: string; with?: Record<string, unknown> }[];
@@ -58,6 +60,32 @@ test("CI/release YAML kalite ve en düşük izin sözleşmesini korur", async ()
   expect(release.jobs.publish!.if).toBe(
     "github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')",
   );
+  const platformlar = [
+    ["verify-linux-x64", "ubuntu-24.04", "bash", "ata-linux-x64"],
+    ["verify-windows-x64", "windows-latest", "pwsh", "yayın-platform-smoke.ps1"],
+    ["verify-macos-x64", "macos-15-intel", "bash", "ata-darwin-x64"],
+    ["verify-macos-arm64", "macos-15", "bash", "ata-darwin-arm64"],
+  ] as const;
+  expect(release.jobs.publish!.needs).toEqual(["build", ...platformlar.map(([ad]) => ad)]);
+  for (const [ad, runner, shell, komut] of platformlar) {
+    const job = release.jobs[ad]!;
+    expect(job).toBeDefined();
+    expect(job["runs-on"]).toBe(runner);
+    expect(job.needs).toBe("build");
+    expect(job.if).toBeUndefined();
+    expect(job["timeout-minutes"]).toBe(15);
+    expect(job.permissions?.contents ?? release.permissions.contents).toBe("read");
+    const indirme = job.steps.find((step) => step.uses?.startsWith("actions/download-artifact@"))!;
+    expect(indirme.with).toEqual({
+      name: "ata-${{ needs.build.outputs.version }}-release-candidate",
+      path: "dist/release",
+    });
+    expect(job.steps.some((step) => step.uses?.startsWith("oven-sh/setup-bun@"))).toBe(false);
+    const smoke = job.steps.at(-1)! as { run: string; shell: string };
+    expect(smoke.shell).toBe(shell);
+    expect(smoke.run).toContain(komut);
+    expect(smoke.run).not.toMatch(/\bbun\b|release:prepare|\bbuild\b/);
+  }
   for (const workflow of [ci, release]) {
     for (const job of Object.values(workflow.jobs)) {
       for (const step of job.steps) {
