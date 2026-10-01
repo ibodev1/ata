@@ -1,6 +1,6 @@
 # Ata Dil
 
-Ata, Türkçenin doğal düşünce sırasını sözdizimine yansıtmayı amaçlayan deneysel bir hobi programlama dilidir. Statik tip denetimi, Unicode adlar, işlevler, listeler, yapılar ve seçenekler içerir. Mevcut kaynak sürümü **0.1.0-rc.3**, Aşama 12 son stabilizasyon adayıdır. Yeni dil özelliği eklenmedi; feature freeze devam ediyor.
+Ata, Türkçenin doğal düşünce sırasını sözdizimine yansıtmayı amaçlayan deneysel bir hobi programlama dilidir. Statik tip denetimi, Unicode adlar, işlevler, listeler, yapılar ve seçenekler içerir. Mevcut kaynak sürümü **0.1.0-rc.3**, Aşama 13 `hiç` tip güvenliği düzeltmesini içerir. Yeni dil özelliği eklenmedi; feature freeze devam ediyor.
 
 ```ata
 sabit ad = "Dünya"
@@ -95,7 +95,7 @@ Binary smoke binary'yi depo dışındaki geçici dizine kopyalar; PATH boşken k
 - [Proje bağlamı](CONTEXT.md): terimler ve mevcut mimari.
 - [Örnekler](örnekler/): çalıştırılabilir Ata programları.
 - [RC.2 yayın notu](docs/sürümler/0.1.0-rc.2.md); [RC.1 yayın notu](docs/sürümler/0.1.0-rc.1.md).
-- [RC.3 stabilizasyon notu](docs/sürümler/0.1.0-rc.3.md): yayımlanmamış iç aday ve karar bekleyen `hiç?` davranışı.
+- [RC.3 stabilizasyon notu](docs/sürümler/0.1.0-rc.3.md): yayımlanmamış iç aday; `hiç` yalnızca işlev dönüş tipidir.
 - [0.1.0 yayın kontrol listesi](docs/0.1.0-yayın-kontrol-listesi.md): public geçiş ve final yayın öncesi insan doğrulaması.
 
 GitHub Actions `push` ve `pull_request` için Ubuntu üzerinde Bun 1.4.2, `bun ci`, `check`, build ve binary smoke çalıştırır. Ayrı Windows job'ı PowerShell 5.1 ve 7+ mimari/ağ installer regresyonlarını doğrular. Release veya yayınlama yapmaz. Windows'ta `check:release` gerçek binary installer smoke'u iki PowerShell sürümünde de çalıştırır.

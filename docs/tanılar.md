@@ -50,6 +50,7 @@ Tablo kaynakta kullanılan bütün kodları kapsar. Bir kod aynı denetim kural�
 | ATA4031 | Birden fazla diğer kolu                                | Tip        |
 | ATA4032 | Son sırada olmayan diğer kolu                          | Tip        |
 | ATA4033 | Ulaşılamaz diğer kolu                                  | Tip        |
+| ATA4034 | Değer tipi/konumunda geçersiz hiç kullanımı            | Tip        |
 | ATA5001 | Sıfıra bölme                                           | Çalışma    |
 | ATA5002 | Sıfıra göre kalan                                      | Çalışma    |
 | ATA5003 | Sonlu olmayan aritmetik sonuç                          | Çalışma    |

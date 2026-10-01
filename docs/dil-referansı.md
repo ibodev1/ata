@@ -6,7 +6,7 @@ Bu belge mevcut 0.1 geliştirme dilini tanımlar. Dil deneysel ve statik tip den
 
 Dosyalar `.ata` uzantılı, geçerli UTF-8 metinlerdir; kaynak NFC'ye normalize edilir. Unicode harfler ve alt çizgi tanımlayıcı başlatabilir; devamında rakamlar ve birleştirici işaretler de kullanılabilir. Adlar büyük/küçük harfe duyarlıdır; ayrılmış sözcükler ad olamaz (`sayı` ad bağlamında kabul edilen istisnadır). Bildirimler satır sonu veya `;` ile ayrılır. `//` satır yorumu, `/* ... */` iç içe geçmeyen blok yorumudur.
 
-Temel tipler `sayı`, `yazı`, `mantık`, `hiç`tir. `hiç` değer döndürmeyen işlevin sonucudur. Mantık değerleri `doğru` ve `yanlış`; eksik değer `yok`tur. `T?`, `T` veya `yok` kabul eder; ikinci isteğe bağlı katman desteklenmez. Tip belirtilmezse başlangıç ifadesinden çıkarılır; tek başına `yok` ve boş liste yeterli bilgi sağlamaz.
+Temel değer tipleri `sayı`, `yazı`, `mantık`tır. `hiç` yalnızca işlev dönüş tipi olarak kullanılabilir; işlevin değer döndürmediğini belirtir. Değer tipi değildir: sabit/değişken, parametre veya yapı alanı tipi olamaz ve `hiç?`, `liste<hiç>` gibi bileşik tiplerde kullanılamaz. Mantık değerleri `doğru` ve `yanlış`; eksik değer `yok`tur. `T?`, gerçek bir değer tipi olan `T` veya `yok` kabul eder; ikinci isteğe bağlı katman desteklenmez. Tip belirtilmezse başlangıç ifadesinden çıkarılır; tek başına `yok` ve boş liste yeterli bilgi sağlamaz.
 
 ```ata
 // Sabit bağ yeniden atanamaz; değişken bağ atanabilir.
@@ -45,6 +45,8 @@ Liste indeksleri sıfırdan başlar. `liste[index]` sonucunun tipi eleman tipidi
 ## İşlevler ve kontrol akışı
 
 İşlevler üst seviyede tanımlanır; ileri çağrı ve özyineleme desteklenir. Parametreler değişmezdir. İşlevler değer olarak taşınamaz; yalnızca doğrudan adla çağrılır. Değer döndüren işlev bütün yollarında uygun tipte dönmelidir. Çağrı derinliği 256 ile sınırlıdır.
+
+Yalnızca çıplak `hiç` dönüş anotasyonu geçerlidir; `hiç?` veya `liste<hiç>` dönüşü geçersizdir. `hiç` döndüren çağrı tek başına ifade bildirimi olarak çalışır; sonucu bağlanamaz, liste elemanı olamaz veya değer gerektiren bir konumda kullanılamaz. Bu kullanımlar statik analizde reddedilir.
 
 ```ata
 işlev ikiKat(n: sayı): sayı { n * 2 döndür }

@@ -52,7 +52,7 @@ Ata, Türkçenin doğal düşünce sırasını sözdizimine yansıtmayı amaçla
 
 **Liste indeksleme**: Listenin sıfırdan başlayan sayı indeksiyle eleman okuma. İndeks güvenli tam sayı ve liste sınırları içinde olmalıdır; alan veya indeks ataması mevcut değildir.
 
-**Değer**: Yürütme sırasında üretilen Ata sayısı, yazısı, mantığı, listesi, `yok` veya `hiç` sonucu. `hiç` değer döndürmeyen işlev sonucu; `yok` kullanıcıya görünen eksik değerdir.
+**Değer**: Yürütme sırasında üretilen Ata sayısı, yazısı, mantığı, listesi, yapısı, seçenek değeri veya `yok`. `hiç` kullanıcı değer tipi değil, yalnızca değer döndürmeyen işlevin dönüş tipidir; internal runtime sonucu korunur. `yok` kullanıcıya görünen eksik değerdir.
 
 **Ortam**: Çalışma zamanı adlarını değer ve değiştirilebilirlik bilgisiyle tutan lexical bağlama alanı.
 
@@ -68,7 +68,7 @@ Ata, Türkçenin doğal düşünce sırasını sözdizimine yansıtmayı amaçla
 
 ## Mevcut aşama
 
-Aşama 12 tamamlandı; `0.1.0-rc.3` yayımlanmamış iç stabilizasyon adayıdır, feature freeze devam eder. Release readiness audit ve yerel kalite/release doğrulaması tamamlandı. Repository private, yayımlanmış private RC `v0.1.0-rc.2`; anonim GitHub installer henüz doğrulanamadı, public geçiş sonrası RC yeniden test edilecek. `docs/0.1.0-yayın-kontrol-listesi.md` final öncesi adımları ve karar bekleyen bileşik `hiç` tiplerini kaydeder. RC.3 tag/Release ve final sürüm oluşturulmadı; code signing/notarization yok.
+Aşama 13 tamamlandı; sürüm `0.1.0-rc.3` olarak kaldı, yayımlanmamış iç stabilizasyon adayıdır. `hiç` yalnızca doğrudan çıplak işlev dönüş tipidir; değer/bileşik tipleri ve çağrı sonucunun bağlama/liste elemanı kullanımı statik olarak reddedilir (`ATA4034`). Standalone çağrı, internal `hiç` ve `ATA5005` invariant guard’ları korunur; 0.1.0 öncesi type-safety blocker kapatıldı. Feature freeze sürer; kalite/release regresyonları doğrulandı. Repository private, yayımlanmış private RC `v0.1.0-rc.2`; anonim installer public geçiş sonrası test edilecek. `docs/0.1.0-yayın-kontrol-listesi.md` kalan final adımlarını kaydeder. RC.3 tag/Release ve final sürüm oluşturulmadı; code signing/notarization yok.
 
 Dört standalone release asseti, SHA-256 ve PowerShell/sh installer/uninstaller mevcut. Native Windows mimarisi CIM → WMI → korumalı RuntimeInformation → ortam bilgisi sırasıyla algılanır; x64 dışı reddedilir. PowerShell 5.1/7+ mimari/ağ regresyonları Windows CI kapsamındadır, yerel binary install/upgrade/uninstall smoke iki kabukta çalışır; gerçek User PATH değişmez. `release:prepare` önceden hazırlanmış Bun runtime’larıyla ağ kullanmadan derler. `check:release` kalite, asset bütünlüğü ve mevcut platform binary/installer smoke doğrular. `release.yml` manuel çalışmada yalnızca artifact üretir; eşleşen mevcut remote tag için RC/dev prerelease veya final release seçer. Yeni uzak workflow push yapılmadığı için gözlemlenmedi.
 

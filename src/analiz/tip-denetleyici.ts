@@ -179,7 +179,14 @@ export function tipleriDenetle(
     tanılar.push({ kod, seviye: "hata", mesaj, aralık, yol });
   }
 
-  function tipÇöz(ifade: Tipİfadesi): Tip {
+  function değerTipi(tip: Tip, aralık: KaynakAralığı): Tip {
+    if (tip.tür !== "hiç") return tip;
+    hata("ATA4034", "'hiç' yalnızca işlev dönüş tipi olarak kullanılabilir.", aralık);
+    return bilinmeyen;
+  }
+
+  // Dönüş istisnası bu düğüme aittir; bileşik tiplerin içi değer bağlamında çözülür.
+  function tipÇöz(ifade: Tipİfadesi, bağlam: "değer" | "işlev-dönüşü" = "değer"): Tip {
     switch (ifade.tür) {
       case "adlandırılmış-tip": {
         const bildirim = isimler.tipBildirimleri.get(ifade.ad);
@@ -187,8 +194,10 @@ export function tipleriDenetle(
         hata("ATA3004", `Tanımlanmamış tip: '${ifade.ad}'.`, ifade.aralık);
         return bilinmeyen;
       }
-      case "temel-tip":
-        return { tür: ifade.ad };
+      case "temel-tip": {
+        const tip: Tip = { tür: ifade.ad };
+        return bağlam === "işlev-dönüşü" ? tip : değerTipi(tip, ifade.aralık);
+      }
       case "liste-tipi": {
         const eleman = tipÇöz(ifade.eleman);
         return eleman.tür === "bilinmeyen" ? bilinmeyen : { tür: "liste", eleman };
@@ -407,8 +416,15 @@ export function tipleriDenetle(
       }
       case "liste": {
         const hedef = beklenen?.tür === "isteğe-bağlı" ? beklenen.temel : beklenen;
-        const elemanHedefi = hedef?.tür === "liste" ? hedef.eleman : undefined;
-        const tipler = ifade.elemanlar.map((eleman) => ifadeDenetle(eleman, elemanHedefi));
+        const elemanHedefi =
+          hedef?.tür === "liste"
+            ? hedef.eleman
+            : hedef?.tür === "bilinmeyen"
+              ? bilinmeyen
+              : undefined;
+        const tipler = ifade.elemanlar.map((eleman) =>
+          değerTipi(ifadeDenetle(eleman, elemanHedefi), eleman.aralık),
+        );
         const elemanTipi = elemanHedefi ?? tipler.find((tip) => tip.tür !== "bilinmeyen");
         if (!elemanTipi || elemanTipi.tür === "yok") {
           if (!tipler.some((tip) => tip.tür === "bilinmeyen"))
@@ -668,7 +684,7 @@ export function tipleriDenetle(
       case "değişken": {
         const açık = bildirim.açıkTip ? tipÇöz(bildirim.açıkTip) : undefined;
         const başlangıç = ifadeDenetle(bildirim.başlangıç, açık);
-        let tip = açık ?? başlangıç;
+        let tip = açık ?? değerTipi(başlangıç, bildirim.başlangıç.aralık);
         if (açık) uyumDenetle(başlangıç, açık, bildirim.başlangıç.aralık);
         else if (başlangıç.tür === "yok") {
           hata(
@@ -786,7 +802,7 @@ export function tipleriDenetle(
     if (sembol.tür === "işlev")
       işlevİmzaları.set(sembol, {
         parametreler: sembol.bildirim.parametreler.map((parametre) => tipÇöz(parametre.tip)),
-        dönüş: tipÇöz(sembol.bildirim.dönüşTipi),
+        dönüş: tipÇöz(sembol.bildirim.dönüşTipi, "işlev-dönüşü"),
       });
   }
   for (const bildirim of program.bildirimler) bildirimDenetle(bildirim, null);

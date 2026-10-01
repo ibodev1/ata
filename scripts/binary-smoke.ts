@@ -87,11 +87,13 @@ async function smoke() {
       ["ATA1001", "@"],
       ["ATA2001", "sabit ="],
       ["ATA3001", "bilinmeyen yazdır"],
+      ["ATA4034", 'işlev f(): hiç { "çağrılmamalı" yazdır }; sabit x: hiç? = f(); x yazdır'],
       ["ATA5001", "1 / 0 yazdır"],
     ] as const;
     await Promise.all(hatalar.map(([kod, metin]) => Bun.write(join(geçici, `${kod}.ata`), metin)));
     for (const [kod] of hatalar) {
       karşılaştır(["çalıştır", `${kod}.ata`], 1, kod);
+      if (kod === "ATA4034") karşılaştır(["denetle", `${kod}.ata`], 1, kod);
     }
     await Bun.write(
       join(geçici, "girdi.ata"),
