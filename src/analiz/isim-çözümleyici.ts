@@ -6,7 +6,9 @@ import type {
   Blok,
   YapıBildirimi,
   SeçenekBildirimi,
-  SeçenekDeğeriİfadesi,
+  Tipİfadesi,
+  AdYolu,
+  KullanAdı,
 } from "../ast/düğümler.ts";
 import type { Tanı } from "../tanılama/tanı.ts";
 import { Kapsam } from "./kapsam.ts";
@@ -17,19 +19,25 @@ import { kaynakOluştur } from "../kaynak/kaynak.ts";
 import type { KaynakAralığı } from "../kaynak/konum.ts";
 import { sözcüklereAyır } from "../sözcük/çözümleyici.ts";
 import { Tanımlayıcı } from "../sözcük/tokenlar.ts";
-import { aktarımGüvenli } from "./modül-bağları.ts";
-import type { DeğerDışaAktarımı, GeliştirmeEngeli, ModülBağlamı } from "./modül-bağları.ts";
+import type { DeğerDışaAktarımı, ModülBağlamı } from "./modül-bağları.ts";
+import type { Tip, TipSembolü } from "./tipler.ts";
+
+export interface SeçenekErişimi {
+  readonly tip: TipSembolü;
+  readonly üye: KullanAdı;
+}
 
 export interface İsimÇözümlemeSonucu {
   readonly tanılar: readonly Tanı[];
   readonly bağlar: ReadonlyMap<İfade, Sembol>;
   readonly bildirimSembolleri: ReadonlyMap<Bildirim | Parametre, Sembol>;
-  readonly tipBildirimleri: ReadonlyMap<string, YapıBildirimi | SeçenekBildirimi>;
-  readonly seçenekErişimleri: ReadonlyMap<İfade, SeçenekDeğeriİfadesi>;
+  readonly tipBildirimleri: ReadonlyMap<string, TipSembolü>;
+  readonly kendiTipleri: ReadonlyMap<YapıBildirimi | SeçenekBildirimi, TipSembolü>;
+  readonly tipBağları: ReadonlyMap<Tipİfadesi | İfade, TipSembolü>;
+  readonly yapıAlanları: ReadonlyMap<TipSembolü, ReadonlyMap<string, Tip>>;
+  readonly seçenekErişimleri: ReadonlyMap<İfade, SeçenekErişimi>;
   readonly içeAktarımlar: ReadonlyMap<Sembol, DeğerDışaAktarımı>;
-  readonly engellenenSemboller: ReadonlySet<Sembol>;
   readonly engellenenAdlar: ReadonlySet<string>;
-  readonly engeller: readonly GeliştirmeEngeli[];
 }
 
 export function isimleriÇöz(
@@ -39,14 +47,15 @@ export function isimleriÇöz(
 ): İsimÇözümlemeSonucu {
   const tanılar: Tanı[] = [];
   const bağlar = new Map<İfade, Sembol>();
-  const seçenekErişimleri = new Map<İfade, SeçenekDeğeriİfadesi>();
+  const seçenekErişimleri = new Map<İfade, SeçenekErişimi>();
+  const tipBağları = new Map<Tipİfadesi | İfade, TipSembolü>();
+  const yapıAlanları = new Map<TipSembolü, ReadonlyMap<string, Tip>>();
   const içeAktarımlar = new Map<Sembol, DeğerDışaAktarımı>();
-  const engellenenSemboller = new Set<Sembol>();
   const engellenenAdlar = new Set<string>();
-  const engeller: GeliştirmeEngeli[] = [];
   const bildirimSembolleri = new Map<Bildirim | Parametre, Sembol>();
   const programKapsamı = new Kapsam();
-  const tipBildirimleri = new Map<string, YapıBildirimi | SeçenekBildirimi>();
+  const tipBildirimleri = new Map<string, TipSembolü>();
+  const kendiTipleri = new Map<YapıBildirimi | SeçenekBildirimi, TipSembolü>();
   for (const işlev of yerleşikler) programKapsamı.ekle({ tür: "yerleşik", ad: işlev.ad, işlev });
 
   function ekle(kapsam: Kapsam, sembol: Exclude<Sembol, { tür: "yerleşik" | "modül" }>): void {
@@ -81,33 +90,18 @@ export function isimleriÇöz(
     tanılar.push({ kod, seviye: "hata", yol, mesaj, aralık });
   }
 
-  function aktar(aktarım: DeğerDışaAktarımı, aralık: KaynakAralığı): void {
+  function aktar(aktarım: DeğerDışaAktarımı): void {
     içeAktarımlar.set(aktarım.sembol, aktarım);
-    if (!aktarımGüvenli(aktarım)) {
-      engellenenSemboller.add(aktarım.sembol);
-      engeller.push({
-        mesaj:
-          "Modüller arası kullanıcı tanımlı tipler bu geliştirme sürümünde henüz desteklenmiyor.",
-        yol,
-        aralık,
-      });
-    }
-  }
-
-  function tipEngeli(aralık: KaynakAralığı): void {
-    engeller.push({
-      mesaj: "Modüller arası tip kullanımı bu geliştirme sürümünde henüz desteklenmiyor.",
-      yol,
-      aralık,
-    });
   }
 
   const adAlanları = new Set<string>();
   const seçilenler = new Set<Sembol>();
+  const seçilenTipler = new Set<TipSembolü>();
   for (const kenar of modüller?.bağımlılıklar ?? []) {
     const bildirim = kenar.bildirim;
     const katalog = modüller?.kataloglar.get(kenar.hedefYol);
     if (!katalog) throw new Error("Dependency export kataloğu bulunamadı.");
+    for (const [tip, alanlar] of katalog.yapıAlanları) yapıAlanları.set(tip, alanlar);
     if (bildirim.biçim.tür === "namespace") {
       const aralık = bildirim.biçim.takmaAd?.aralık ?? bildirim.yolAralığı;
       if (adAlanları.has(kenar.hedefYol)) {
@@ -135,21 +129,22 @@ export function isimleriÇöz(
       }
       if (!programKapsamı.ekle({ tür: "modül", ad, aralık, bildirim, katalog }))
         hata("ATA3002", `Aynı isim bu kapsamda zaten tanımlı: '${ad}'.`, aralık);
+      if (tipBildirimleri.has(ad))
+        hata("ATA3005", `Tip adı modül ad alanıyla çakışıyor: '${ad}'.`, aralık);
     } else {
       for (const seçilen of bildirim.biçim.adlar) {
         const aktarım = katalog.değerler.get(seçilen.ad);
-        if (!aktarım) {
+        const tip = katalog.tipler.get(seçilen.ad);
+        if (!aktarım && !tip) {
           engellenenAdlar.add(seçilen.ad);
-          if (katalog.tipler.has(seçilen.ad)) tipEngeli(seçilen.aralık);
-          else
-            hata(
-              "ATA6004",
-              `'${bildirim.yol}' modülünde erişilebilir '${seçilen.ad}' adı bulunamadı.`,
-              seçilen.aralık,
-            );
+          hata(
+            "ATA6004",
+            `'${bildirim.yol}' modülünde erişilebilir '${seçilen.ad}' adı bulunamadı.`,
+            seçilen.aralık,
+          );
           continue;
         }
-        if (seçilenler.has(aktarım.sembol)) {
+        if ((aktarım && seçilenler.has(aktarım.sembol)) || (tip && seçilenTipler.has(tip))) {
           hata(
             "ATA6007",
             `'${bildirim.yol}' modülünün '${seçilen.ad}' adı zaten seçici olarak bağlı.`,
@@ -157,12 +152,75 @@ export function isimleriÇöz(
           );
           continue;
         }
-        seçilenler.add(aktarım.sembol);
-        aktar(aktarım, seçilen.aralık);
-        if (!programKapsamı.ekle(aktarım.sembol))
-          hata("ATA3002", `Aynı isim bu kapsamda zaten tanımlı: '${seçilen.ad}'.`, seçilen.aralık);
+        if (aktarım) {
+          seçilenler.add(aktarım.sembol);
+          aktar(aktarım);
+          if (!programKapsamı.ekle(aktarım.sembol))
+            hata(
+              "ATA3002",
+              `Aynı isim bu kapsamda zaten tanımlı: '${seçilen.ad}'.`,
+              seçilen.aralık,
+            );
+        }
+        if (tip) {
+          seçilenTipler.add(tip);
+          if (programKapsamı.bul(seçilen.ad)?.tür === "modül")
+            hata(
+              "ATA3005",
+              `Tip adı modül ad alanıyla çakışıyor: '${seçilen.ad}'.`,
+              seçilen.aralık,
+            );
+          if (tipBildirimleri.has(seçilen.ad))
+            hata("ATA3005", `Yinelenen tip adı: '${seçilen.ad}'.`, seçilen.aralık);
+          else tipBildirimleri.set(seçilen.ad, tip);
+        }
       }
     }
+  }
+
+  function tipYoluÇöz(parçalar: AdYolu, kapsam: Kapsam): TipSembolü | undefined {
+    const [ilk, üye] = parçalar;
+    if (!üye) {
+      const tip = tipBildirimleri.get(ilk.ad);
+      if (!tip && !engellenenAdlar.has(ilk.ad))
+        hata("ATA3004", `Tanımlanmamış tip: '${ilk.ad}'.`, ilk.aralık);
+      return tip;
+    }
+    const namespace = kapsam.bul(ilk.ad);
+    if (namespace?.tür !== "modül") {
+      hata("ATA3004", `'${ilk.ad}' bu kapsamda bir modül ad alanı değildir.`, ilk.aralık);
+      return undefined;
+    }
+    if (parçalar.length !== 2) {
+      const fazla = parçalar[2];
+      if (fazla) hata("ATA4025", "Bu nitelikli tip yolu desteklenmiyor.", fazla.aralık);
+      return undefined;
+    }
+    const tip = namespace.katalog.tipler.get(üye.ad);
+    if (!tip)
+      hata(
+        "ATA6004",
+        `'${ilk.ad}' modülünde erişilebilir '${üye.ad}' tipi bulunamadı.`,
+        üye.aralık,
+      );
+    return tip;
+  }
+
+  function tipÇöz(ifade: Tipİfadesi, kapsam: Kapsam): void {
+    if (ifade.tür === "liste-tipi") tipÇöz(ifade.eleman, kapsam);
+    else if (ifade.tür === "isteğe-bağlı-tip") tipÇöz(ifade.temel, kapsam);
+    else if (ifade.tür === "adlandırılmış-tip" || ifade.tür === "nitelikli-tip") {
+      const tip = tipYoluÇöz(
+        ifade.tür === "nitelikli-tip" ? ifade.parçalar : [{ ad: ifade.ad, aralık: ifade.aralık }],
+        kapsam,
+      );
+      if (tip) tipBağları.set(ifade, tip);
+    }
+  }
+
+  function seçenekÇöz(ifade: İfade, tipYolu: AdYolu, üye: KullanAdı, kapsam: Kapsam): void {
+    const tip = tipYoluÇöz(tipYolu, kapsam);
+    if (tip) seçenekErişimleri.set(ifade, { tip, üye });
   }
 
   function ifadeÇöz(ifade: İfade, kapsam: Kapsam): void {
@@ -170,20 +228,24 @@ export function isimleriÇöz(
       case "nitelikli-ad": {
         const [ilk, üye] = ifade.parçalar;
         const sembol = kapsam.bul(ilk.ad);
-        if (sembol?.tür === "modül") {
+        if (sembol?.tür === "modül" && ifade.parçalar.length === 3) {
+          const varyant = ifade.parçalar[2];
+          if (!sembol.katalog.tipler.has(üye.ad) && sembol.katalog.değerler.has(üye.ad)) {
+            if (varyant) hata("ATA4025", "Değer üzerinde '::' kullanılamaz.", varyant.aralık);
+          } else if (varyant) seçenekÇöz(ifade, [ilk, üye], varyant, kapsam);
+        } else if (sembol?.tür === "modül") {
           const aktarım = sembol.katalog.değerler.get(üye.ad);
           if (!aktarım) {
-            if (sembol.katalog.tipler.has(üye.ad)) tipEngeli(üye.aralık);
-            else
-              hata(
-                "ATA6004",
-                `'${sembol.ad}' modülünde erişilebilir '${üye.ad}' adı bulunamadı.`,
-                üye.aralık,
-              );
+            hata(
+              "ATA6004",
+              `'${sembol.ad}' modülünde erişilebilir '${üye.ad}' adı bulunamadı.`,
+              üye.aralık,
+            );
           } else if (ifade.parçalar.length !== 2) {
-            hata("ATA4025", "Değer üzerinde '::' kullanılamaz.", ifade.parçalar[2]!.aralık);
+            const fazla = ifade.parçalar[2];
+            if (fazla) hata("ATA4025", "Değer üzerinde '::' kullanılamaz.", fazla.aralık);
           } else {
-            aktar(aktarım, üye.aralık);
+            aktar(aktarım);
             bağlar.set(ifade, aktarım.sembol);
           }
         } else if (sembol && programKapsamı.bul(ilk.ad)?.tür === "modül") {
@@ -191,25 +253,26 @@ export function isimleriÇöz(
         } else if (engellenenAdlar.has(ilk.ad)) {
           break;
         } else if (ifade.parçalar.length !== 2) {
-          tanılar.push({
-            kod: "ATA4025",
-            seviye: "hata",
-            yol,
-            mesaj: "Bu nitelikli ad yolu henüz desteklenmiyor.",
-            aralık: ifade.parçalar[2]!.aralık,
-          });
+          const fazla = ifade.parçalar[2];
+          if (fazla) hata("ATA4025", "Bu nitelikli ad yolu desteklenmiyor.", fazla.aralık);
         } else {
-          seçenekErişimleri.set(ifade, {
-            tür: "seçenek-değeri",
-            seçenekAdı: ifade.parçalar[0].ad,
-            üyeAdı: ifade.parçalar[1].ad,
-            aralık: ifade.aralık,
-          });
+          seçenekÇöz(ifade, [ilk], üye, kapsam);
         }
         break;
       }
-      case "yapı-oluşturma":
+      case "yapı-oluşturma": {
+        const tip = tipYoluÇöz(ifade.yapıYolu, kapsam);
+        if (tip) tipBağları.set(ifade, tip);
         ifade.alanlar.forEach((alan) => ifadeÇöz(alan.değer, kapsam));
+        break;
+      }
+      case "seçenek-değeri":
+        seçenekÇöz(
+          ifade,
+          [{ ad: ifade.seçenekAdı, aralık: ifade.aralık }],
+          { ad: ifade.üyeAdı, aralık: ifade.aralık },
+          kapsam,
+        );
         break;
       case "alan-erişim":
         ifadeÇöz(ifade.hedef, kapsam);
@@ -245,7 +308,6 @@ export function isimleriÇöz(
         });
         break;
       case "sayı":
-      case "seçenek-değeri":
       case "mantık":
       case "yok":
         break;
@@ -259,14 +321,20 @@ export function isimleriÇöz(
   function bildirimÇöz(bildirim: Bildirim, kapsam: Kapsam): void {
     switch (bildirim.tür) {
       case "yapı":
+        for (const alan of bildirim.alanlar) tipÇöz(alan.tip, kapsam);
+        break;
       case "seçenek":
         break;
       case "eşleştir":
         ifadeÇöz(bildirim.hedef, kapsam);
-        for (const kol of bildirim.kollar) blokÇöz(kol.blok, new Kapsam(kapsam));
+        for (const kol of bildirim.kollar) {
+          if (kol.desen.tür !== "diğer") ifadeÇöz(kol.desen, kapsam);
+          blokÇöz(kol.blok, new Kapsam(kapsam));
+        }
         break;
       case "sabit":
       case "değişken":
+        if (bildirim.açıkTip) tipÇöz(bildirim.açıkTip, kapsam);
         ifadeÇöz(bildirim.başlangıç, kapsam);
         ekle(kapsam, {
           tür: "değer",
@@ -277,6 +345,8 @@ export function isimleriÇöz(
         });
         break;
       case "işlev": {
+        tipÇöz(bildirim.dönüşTipi, programKapsamı);
+        for (const parametre of bildirim.parametreler) tipÇöz(parametre.tip, programKapsamı);
         const işlevKapsamı = new Kapsam(kapsam);
         for (const parametre of bildirim.parametreler)
           ekle(işlevKapsamı, {
@@ -327,7 +397,11 @@ export function isimleriÇöz(
           aralık: bildirim.aralık,
           mesaj: `Yinelenen tip adı: '${bildirim.ad}'.`,
         });
-      else tipBildirimleri.set(bildirim.ad, bildirim);
+      else {
+        const sembol = { modülYolu: yol, bildirim };
+        kendiTipleri.set(bildirim, sembol);
+        tipBildirimleri.set(bildirim.ad, sembol);
+      }
       if (programKapsamı.bul(bildirim.ad)?.tür === "modül")
         hata("ATA3005", `Tip adı modül ad alanıyla çakışıyor: '${bildirim.ad}'.`, bildirim.aralık);
     }
@@ -340,10 +414,11 @@ export function isimleriÇöz(
     bağlar,
     bildirimSembolleri,
     tipBildirimleri,
+    kendiTipleri,
+    tipBağları,
+    yapıAlanları,
     seçenekErişimleri,
     içeAktarımlar,
-    engellenenSemboller,
     engellenenAdlar,
-    engeller,
   };
 }

@@ -24,6 +24,7 @@ export type {
   SeçenekBildirimi,
   SeçenekDeğeriİfadesi,
   NitelikliAdİfadesi,
+  AdYolu,
   EşleştirBildirimi,
   EşleştirmeKolu,
   Parametre,
@@ -36,7 +37,7 @@ export type {
 export { analizEt } from "./analiz/analiz.ts";
 export type { AnalizSonucu } from "./analiz/analiz.ts";
 export type { TipDenetlemeSonucu } from "./analiz/tip-denetleyici.ts";
-export type { Tip, İşlevİmzası } from "./analiz/tipler.ts";
+export type { Tip, İşlevİmzası, NominalTip, TipSembolü } from "./analiz/tipler.ts";
 export type { Sembol } from "./analiz/kapsam.ts";
 export { yorumla } from "./çalışma/yorumlayıcı.ts";
 export type { YorumlamaSeçenekleri, YorumlamaSonucu } from "./çalışma/yorumlayıcı.ts";

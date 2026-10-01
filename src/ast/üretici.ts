@@ -15,7 +15,8 @@ import type {
   Tipİfadesi,
   İkiliİşleç,
   Atamaİşleci,
-  SeçenekDeğeriİfadesi,
+  AdYolu,
+  NitelikliAdİfadesi,
 } from "./düğümler.ts";
 
 function alt(düğüm: CstNode, ad: string, sıra = 0): CstNode {
@@ -172,8 +173,8 @@ export class AstÜreticisi {
           hedef: ifade,
           aralık,
           kollar: altlar(son, "eşleştirmeKolu").map((kol) => ({
-            desen: kol.children.seçenekDeğeri
-              ? this.seçenekDeğeri(alt(kol, "seçenekDeğeri"))
+            desen: kol.children.nitelikliAd
+              ? this.nitelikliAd(alt(kol, "nitelikliAd"))
               : {
                   tür: "diğer",
                   aralık: aralıkBul(
@@ -229,13 +230,17 @@ export class AstÜreticisi {
     };
   }
 
-  private seçenekDeğeri(düğüm: CstNode): SeçenekDeğeriİfadesi {
-    return {
-      tür: "seçenek-değeri",
-      seçenekAdı: token(düğüm, "ad").image,
-      üyeAdı: token(düğüm, "üye").image,
-      aralık: this.aralık(düğüm),
-    };
+  private adYolu(düğüm: CstNode, ad = "parça"): AdYolu {
+    const parçalar = (düğüm.children[ad] ?? []).map((_, i) => this.kullanAdı(token(düğüm, ad, i)));
+    const ilk = parçalar.shift();
+    if (!ilk) throw new Error("Ad yolu en az bir segment gerektirir.");
+    return [ilk, ...parçalar];
+  }
+
+  private nitelikliAd(düğüm: CstNode): NitelikliAdİfadesi {
+    const [ilk, ikinci, ...kalan] = this.adYolu(düğüm);
+    if (!ikinci) throw new Error("Nitelikli ad en az iki segment gerektirir.");
+    return { tür: "nitelikli-ad", parçalar: [ilk, ikinci, ...kalan], aralık: this.aralık(düğüm) };
   }
 
   private koşul(düğüm: CstNode): KoşulBildirimi {
@@ -268,6 +273,7 @@ export class AstÜreticisi {
     const sonToken = token(
       düğüm,
       düğüm.children.temel ? "temel" : düğüm.children.tipAdı ? "tipAdı" : "Büyük",
+      düğüm.children.tipAdı ? düğüm.children.tipAdı.length - 1 : 0,
     );
     const aralık = aralıkBul(
       this.kaynak,
@@ -281,32 +287,16 @@ export class AstÜreticisi {
           aralık,
         }
       : düğüm.children.tipAdı
-        ? { tür: "adlandırılmış-tip", ad: token(düğüm, "tipAdı").image, aralık }
+        ? düğüm.children.tipAdı.length === 1
+          ? { tür: "adlandırılmış-tip", ad: token(düğüm, "tipAdı").image, aralık }
+          : { tür: "nitelikli-tip", parçalar: this.adYolu(düğüm, "tipAdı"), aralık }
         : { tür: "liste-tipi", eleman: this.tip(alt(düğüm, "tip")), aralık };
     return soru ? { tür: "isteğe-bağlı-tip", temel, aralık: this.aralık(düğüm) } : temel;
   }
 
   private ifade(düğüm: CstNode): İfade {
     if (düğüm.children.nitelikliAd) return this.ifade(alt(düğüm, "nitelikliAd"));
-    if (düğüm.name === "nitelikliAd") {
-      const parçalar = (düğüm.children.parça ?? []).map((_, i) => {
-        const parça = token(düğüm, "parça", i);
-        return {
-          ad: parça.image,
-          aralık: aralıkBul(this.kaynak, parça.startOffset, parça.startOffset + parça.image.length),
-        };
-      });
-      const ilk = parçalar.shift();
-      const ikinci = parçalar.shift();
-      if (!ilk || !ikinci) throw new Error("Nitelikli ad en az iki segment gerektirir.");
-      return {
-        tür: "nitelikli-ad",
-        parçalar: [ilk, ikinci, ...parçalar],
-        aralık: this.aralık(düğüm),
-      };
-    }
-    if (düğüm.name === "seçenekDeğeri") return this.seçenekDeğeri(düğüm);
-    if (düğüm.children.seçenekDeğeri) return this.seçenekDeğeri(alt(düğüm, "seçenekDeğeri"));
+    if (düğüm.name === "nitelikliAd") return this.nitelikliAd(düğüm);
     const aralık = this.aralık(düğüm);
     if (düğüm.name === "ifade") {
       return düğüm.children.ad
@@ -398,7 +388,7 @@ export class AstÜreticisi {
     if (düğüm.name === "yapıOluşturma")
       return {
         tür: "yapı-oluşturma",
-        yapıAdı: token(düğüm, "ad").image,
+        yapıYolu: this.adYolu(düğüm),
         aralık,
         alanlar: altlar(düğüm, "alanDeğeri").map((alan) => ({
           ad: token(alan, "ad").image,

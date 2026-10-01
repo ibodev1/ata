@@ -206,10 +206,16 @@ for (const ad of ["al", "ilk", "son"]) {
       expect(analiz.tanılar).toEqual([]);
       const bildirim = program.bildirimler.at(-2);
       if (bildirim?.tür !== "sabit") throw new Error("Sabit bekleniyordu.");
-      expect(analiz.ifadeTipleri.get(bildirim.başlangıç)).toEqual({ tür: "isteğe-bağlı", temel });
+      expect(analiz.ifadeTipleri.get(bildirim.başlangıç)).toMatchObject({
+        tür: "isteğe-bağlı",
+        temel,
+      });
       const sembol = [...analiz.sembolTipleri.keys()].find((aday) => aday.ad === "sonuç");
       expect(sembol).toBeDefined();
-      expect(sembol && analiz.sembolTipleri.get(sembol)).toEqual({ tür: "isteğe-bağlı", temel });
+      expect(sembol && analiz.sembolTipleri.get(sembol)).toMatchObject({
+        tür: "isteğe-bağlı",
+        temel,
+      });
       expect(çalıştır(metin)).toEqual([çıktı]);
     },
   );

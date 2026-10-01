@@ -14,6 +14,8 @@ export interface KullanAdı extends Düğüm {
   readonly ad: string;
 }
 
+export type AdYolu = readonly [KullanAdı, ...KullanAdı[]];
+
 export interface KullanBildirimi extends Düğüm {
   readonly tür: "kullan";
   readonly yol: string;
@@ -98,7 +100,7 @@ export interface NitelikliAdİfadesi extends Düğüm {
 }
 
 export interface EşleştirmeKolu extends Düğüm {
-  readonly desen: SeçenekDeğeriİfadesi | (Düğüm & { readonly tür: "diğer" });
+  readonly desen: SeçenekDeğeriİfadesi | NitelikliAdİfadesi | (Düğüm & { readonly tür: "diğer" });
   readonly blok: Blok;
 }
 
@@ -123,6 +125,7 @@ export type Bildirim =
 
 export type Tipİfadesi =
   | (Düğüm & { readonly tür: "adlandırılmış-tip"; readonly ad: string })
+  | (Düğüm & { readonly tür: "nitelikli-tip"; readonly parçalar: AdYolu })
   | (Düğüm & { readonly tür: "temel-tip"; readonly ad: "sayı" | "yazı" | "mantık" | "hiç" })
   | (Düğüm & { readonly tür: "liste-tipi"; readonly eleman: Tipİfadesi })
   | (Düğüm & { readonly tür: "isteğe-bağlı-tip"; readonly temel: Tipİfadesi });
@@ -152,7 +155,7 @@ export type İfade =
   | NitelikliAdİfadesi
   | (Düğüm & {
       readonly tür: "yapı-oluşturma";
-      readonly yapıAdı: string;
+      readonly yapıYolu: AdYolu;
       readonly alanlar: readonly (Düğüm & { readonly ad: string; readonly değer: İfade })[];
     })
   | (Düğüm & { readonly tür: "alan-erişim"; readonly hedef: İfade; readonly alan: string })

@@ -53,11 +53,12 @@ export function yorumla(program: Program, seçenekler: YorumlamaSeçenekleri): Y
         return { tür: "seçenek", seçenekAdı: seçenek.ad, üyeAdı: ifade.üyeAdı };
       }
       case "yapı-oluşturma": {
-        const yapı = tipBildirimleri.get(ifade.yapıAdı);
+        const yapıAdı = ifade.yapıYolu[0].ad;
+        const yapı = ifade.yapıYolu.length === 1 ? tipBildirimleri.get(yapıAdı) : undefined;
         if (yapı?.tür !== "yapı")
           return hata(
             "ATA5005",
-            `Çalışma zamanı yapı tipi bulunamadı: '${ifade.yapıAdı}'.`,
+            `Çalışma zamanı yapı tipi bulunamadı: '${yapıAdı}'.`,
             ifade.aralık,
           );
         const alanlar = new Map<string, Değer>();
@@ -249,7 +250,11 @@ export function yorumla(program: Program, seçenekler: YorumlamaSeçenekleri): Y
         const kol = bildirim.kollar.find(
           (aday) =>
             aday.desen.tür === "diğer" ||
-            (aday.desen.seçenekAdı === hedef.seçenekAdı && aday.desen.üyeAdı === hedef.üyeAdı),
+            (aday.desen.tür === "seçenek-değeri"
+              ? aday.desen.seçenekAdı === hedef.seçenekAdı && aday.desen.üyeAdı === hedef.üyeAdı
+              : aday.desen.parçalar.length === 2 &&
+                aday.desen.parçalar[0].ad === hedef.seçenekAdı &&
+                aday.desen.parçalar[1].ad === hedef.üyeAdı),
         );
         if (!kol)
           return hata(

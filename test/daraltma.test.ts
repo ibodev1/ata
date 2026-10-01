@@ -406,10 +406,12 @@ test("daraltmalı analiz AST'yi değiştirmez ve her çalıştırmada bağımsı
   expect(JSON.stringify(program)).toBe(önce);
   expect(ilk.sembolTipleri).not.toBe(ikinci.sembolTipleri);
   expect([...ilk.sembolTipleri.values()]).toEqual([...ikinci.sembolTipleri.values()]);
-  expect([...ilk.sembolTipleri.values()]).toContainEqual({
-    tür: "isteğe-bağlı",
-    temel: { tür: "yapı", ad: "K" },
-  });
+  expect([...ilk.sembolTipleri.values()]).toContainEqual(
+    expect.objectContaining({
+      tür: "isteğe-bağlı",
+      temel: expect.objectContaining({ tür: "yapı", ad: "K" }),
+    }),
+  );
 });
 
 test("atama daraltılmış RHS'i kullanır, hedefi temel optional tip olarak denetler", () => {

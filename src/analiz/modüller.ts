@@ -2,20 +2,18 @@ import type { ModülGrafiği } from "../modüller/grafik.ts";
 import type { Tanı } from "../tanılama/tanı.ts";
 import { analizEt } from "./analiz.ts";
 import type { AnalizSonucu } from "./analiz.ts";
-import type { DeğerDışaAktarımı, GeliştirmeEngeli, ModülDışaAktarımları } from "./modül-bağları.ts";
+import type { DeğerDışaAktarımı, ModülDışaAktarımları } from "./modül-bağları.ts";
 
 export interface ModülAnalizSonucu {
   readonly analizler: ReadonlyMap<string, AnalizSonucu>;
   readonly kataloglar: ReadonlyMap<string, ModülDışaAktarımları>;
   readonly tanılar: readonly Tanı[];
-  readonly engeller: readonly GeliştirmeEngeli[];
 }
 
 export function modülleriAnalizEt(grafik: ModülGrafiği): ModülAnalizSonucu {
   const analizler = new Map<string, AnalizSonucu>();
   const kataloglar = new Map<string, ModülDışaAktarımları>();
   const tanılar: Tanı[] = [];
-  const engeller: GeliştirmeEngeli[] = [];
   for (const modül of grafik.sıra) {
     // Hatalı dependency'den sahte export/missing-name cascade'i üretilmez.
     if (modül.bağımlılıklar.some((kenar) => !kataloglar.has(kenar.hedefYol))) continue;
@@ -25,9 +23,7 @@ export function modülleriAnalizEt(grafik: ModülGrafiği): ModülAnalizSonucu {
     });
     analizler.set(modül.kanonikYol, analiz);
     tanılar.push(...analiz.tanılar);
-    engeller.push(...analiz.isimler.engeller);
-    if (analiz.tanılar.some((tanı) => tanı.seviye === "hata") || analiz.isimler.engeller.length)
-      continue;
+    if (analiz.tanılar.some((tanı) => tanı.seviye === "hata")) continue;
     const değerler = new Map<string, DeğerDışaAktarımı>();
     for (const bildirim of modül.program.bildirimler) {
       const sembol = analiz.isimler.bildirimSembolleri.get(bildirim);
@@ -44,8 +40,11 @@ export function modülleriAnalizEt(grafik: ModülGrafiği): ModülAnalizSonucu {
     kataloglar.set(modül.kanonikYol, {
       modülYolu: modül.kanonikYol,
       değerler,
-      tipler: analiz.isimler.tipBildirimleri,
+      tipler: new Map(
+        [...analiz.isimler.kendiTipleri].map(([bildirim, sembol]) => [bildirim.ad, sembol]),
+      ),
+      yapıAlanları: analiz.yapıAlanları,
     });
   }
-  return { analizler, kataloglar, tanılar, engeller };
+  return { analizler, kataloglar, tanılar };
 }

@@ -1,8 +1,6 @@
-import type { YapıBildirimi, SeçenekBildirimi } from "../ast/düğümler.ts";
-import type { KaynakAralığı } from "../kaynak/konum.ts";
 import type { ModülBağımlılığı } from "../modüller/grafik.ts";
 import type { Sembol } from "./kapsam.ts";
-import type { Tip, İşlevİmzası } from "./tipler.ts";
+import type { Tip, İşlevİmzası, TipSembolü } from "./tipler.ts";
 
 export type DeğerDışaAktarımı =
   | {
@@ -21,28 +19,11 @@ export type DeğerDışaAktarımı =
 export interface ModülDışaAktarımları {
   readonly modülYolu: string;
   readonly değerler: ReadonlyMap<string, DeğerDışaAktarımı>;
-  readonly tipler: ReadonlyMap<string, YapıBildirimi | SeçenekBildirimi>;
+  readonly tipler: ReadonlyMap<string, TipSembolü>;
+  readonly yapıAlanları: ReadonlyMap<TipSembolü, ReadonlyMap<string, Tip>>;
 }
 
 export interface ModülBağlamı {
   readonly bağımlılıklar: readonly ModülBağımlılığı[];
   readonly kataloglar: ReadonlyMap<string, ModülDışaAktarımları>;
-}
-
-export interface GeliştirmeEngeli {
-  readonly mesaj: string;
-  readonly yol: string;
-  readonly aralık: KaynakAralığı;
-}
-
-function modülGüvenliTip(tip: Tip): boolean {
-  if (tip.tür === "liste") return modülGüvenliTip(tip.eleman);
-  if (tip.tür === "isteğe-bağlı") return modülGüvenliTip(tip.temel);
-  return tip.tür !== "yapı" && tip.tür !== "seçenek";
-}
-
-export function aktarımGüvenli(aktarım: DeğerDışaAktarımı): boolean {
-  return aktarım.tür === "sabit"
-    ? modülGüvenliTip(aktarım.tip)
-    : modülGüvenliTip(aktarım.imza.dönüş) && aktarım.imza.parametreler.every(modülGüvenliTip);
 }

@@ -16,3 +16,35 @@ test("parser nitelikli ifade yolunu semantik karar vermeden segment aralıkları
     ],
   });
 });
+
+test("qualified tip, composite ve yapı oluşturma her segmentin aralığını korur", () => {
+  const sonuç = ayrıştır(kaynakOluştur("tip.ata", 'sabit k: liste<m::K?> = [m::K { ad: "Ata" }]'));
+  expect(sonuç.tanılar).toEqual([]);
+  expect(sonuç.program?.bildirimler[0]).toMatchObject({
+    açıkTip: {
+      tür: "liste-tipi",
+      eleman: {
+        tür: "isteğe-bağlı-tip",
+        temel: {
+          tür: "nitelikli-tip",
+          parçalar: [
+            { ad: "m", aralık: { başlangıç: { ofset: 15 }, bitiş: { ofset: 16 } } },
+            { ad: "K", aralık: { başlangıç: { ofset: 18 }, bitiş: { ofset: 19 } } },
+          ],
+        },
+      },
+    },
+    başlangıç: {
+      tür: "liste",
+      elemanlar: [{ tür: "yapı-oluşturma", yapıYolu: [{ ad: "m" }, { ad: "K" }] }],
+    },
+  });
+});
+
+test("malformed qualified type yolları normal parser tanısı verir", () => {
+  for (const tip of ["m::", "::K", "m::::K", "liste<m::>"]) {
+    const sonuç = ayrıştır(kaynakOluştur("tip.ata", `sabit k: ${tip} = yok`));
+    expect(sonuç.tanılar.map((t) => t.kod)).toEqual(["ATA2001"]);
+    expect(sonuç.program).toBeNull();
+  }
+});

@@ -154,12 +154,6 @@ class AtaAyrıştırıcısı extends CstParser {
 
   readonly seçenekÜyesi = this.RULE("seçenekÜyesi", () => this.CONSUME(Ad, { LABEL: "ad" }));
 
-  readonly seçenekDeğeri = this.RULE("seçenekDeğeri", () => {
-    this.CONSUME(Ad, { LABEL: "ad" });
-    this.CONSUME(tokenTürü("ÇiftİkiNokta"));
-    this.CONSUME2(Ad, { LABEL: "üye" });
-  });
-
   readonly nitelikliAd = this.RULE("nitelikliAd", () => {
     this.CONSUME(Ad, { LABEL: "parça" });
     this.AT_LEAST_ONE(() => {
@@ -182,7 +176,7 @@ class AtaAyrıştırıcısı extends CstParser {
 
   readonly eşleştirmeKolu = this.RULE("eşleştirmeKolu", () => {
     this.OR([
-      { ALT: () => this.SUBRULE(this.seçenekDeğeri) },
+      { ALT: () => this.SUBRULE(this.nitelikliAd) },
       { ALT: () => this.CONSUME(tokenTürü("diğer")) },
     ]);
     this.CONSUME(tokenTürü("ise"));
@@ -309,7 +303,15 @@ class AtaAyrıştırıcısı extends CstParser {
       ...["sayı", "yazı", "mantık", "hiç"].map((ad) => ({
         ALT: () => this.CONSUME(tokenTürü(ad), { LABEL: "temel" }),
       })),
-      { ALT: () => this.CONSUME(tokenTürü("Tanımlayıcı"), { LABEL: "tipAdı" }) },
+      {
+        ALT: () => {
+          this.CONSUME(tokenTürü("Tanımlayıcı"), { LABEL: "tipAdı" });
+          this.MANY(() => {
+            this.CONSUME(tokenTürü("ÇiftİkiNokta"));
+            this.CONSUME2(tokenTürü("Tanımlayıcı"), { LABEL: "tipAdı" });
+          });
+        },
+      },
       {
         ALT: () => {
           this.CONSUME(tokenTürü("liste"));
@@ -402,7 +404,11 @@ class AtaAyrıştırıcısı extends CstParser {
   });
 
   readonly yapıOluşturma = this.RULE("yapıOluşturma", () => {
-    this.CONSUME(Ad, { LABEL: "ad" });
+    this.CONSUME(Ad, { LABEL: "parça" });
+    this.MANY2(() => {
+      this.CONSUME(tokenTürü("ÇiftİkiNokta"));
+      this.CONSUME2(Ad, { LABEL: "parça" });
+    });
     this.CONSUME(tokenTürü("SolSüslü"));
     this.SUBRULE(this.satırlar);
     this.OPTION(() => {
@@ -456,8 +462,20 @@ class AtaAyrıştırıcısı extends CstParser {
       { ALT: () => this.CONSUME(tokenTürü("doğru"), { LABEL: "değer" }) },
       { ALT: () => this.CONSUME(tokenTürü("yanlış"), { LABEL: "değer" }) },
       { ALT: () => this.CONSUME(tokenTürü("yok"), { LABEL: "değer" }) },
+      {
+        GATE: () => {
+          let sıra = 1;
+          if (!tokenMatcher(this.LA(sıra), Ad)) return false;
+          while (
+            tokenMatcher(this.LA(sıra + 1), tokenTürü("ÇiftİkiNokta")) &&
+            tokenMatcher(this.LA(sıra + 2), Ad)
+          )
+            sıra += 2;
+          return tokenMatcher(this.LA(sıra + 1), tokenTürü("SolSüslü"));
+        },
+        ALT: () => this.SUBRULE(this.yapıOluşturma),
+      },
       { ALT: () => this.SUBRULE(this.nitelikliAd) },
-      { ALT: () => this.SUBRULE(this.yapıOluşturma) },
       { ALT: () => this.CONSUME(Ad, { LABEL: "değer" }) },
       {
         ALT: () => {

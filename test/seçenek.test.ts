@@ -320,10 +320,12 @@ test("analiz AST'yi değiştirmez; çıkarılmış nominal/liste tipleri yan tab
   const önce = JSON.stringify(program);
   const analiz = analizEt(program);
   expect(analiz.tanılar).toEqual([]);
-  expect([...analiz.sembolTipleri.values()]).toContainEqual({
-    tür: "liste",
-    eleman: { tür: "seçenek", ad: "Durum" },
-  });
+  expect([...analiz.sembolTipleri.values()]).toContainEqual(
+    expect.objectContaining({
+      tür: "liste",
+      eleman: expect.objectContaining({ tür: "seçenek", ad: "Durum" }),
+    }),
+  );
   expect(JSON.stringify(program)).toBe(önce);
   expect(analizEt(program).tanılar).toEqual([]);
   expect(JSON.stringify(program)).not.toContain("tokenType");

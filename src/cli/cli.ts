@@ -62,13 +62,7 @@ async function cli(argümanlar: readonly string[]): Promise<number> {
   if (!grafik) return 1;
   const analiz = modülleriAnalizEt(grafik);
   tanılarıYaz(analiz.tanılar);
-  for (const engel of analiz.engeller) {
-    const { satır, sütun } = engel.aralık.başlangıç;
-    console.error(
-      `${engel.mesaj}\n  --> ${modülGörünenYolu(kanonikGiriş, engel.yol)}:${satır}:${sütun}`,
-    );
-  }
-  if (analiz.tanılar.some((tanı) => tanı.seviye === "hata") || analiz.engeller.length) return 1;
+  if (analiz.tanılar.some((tanı) => tanı.seviye === "hata")) return 1;
   if (komut === "denetle") {
     console.log("Denetim başarılı.");
     return 0;

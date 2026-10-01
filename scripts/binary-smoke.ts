@@ -157,13 +157,36 @@ async function smoke() {
     await Bun.write(yardımcı, "yapı K { x: sayı }\nsabit kişi = K { x: 1 }");
     await Bun.write(
       join(geçici, modülGirişi),
+      '"yardımcı dosyalar/ölçüler" mat olarak kullan\nsabit k: mat::K = mat::K { x: 1 }\nk.x yazdır',
+    );
+    karşılaştır(["denetle", modülGirişi], 0, "Denetim başarılı.\n");
+    karşılaştır(
+      ["çalıştır", modülGirişi],
+      1,
+      "Modül çalışma zamanı bu geliştirme sürümünde henüz desteklenmiyor.",
+    );
+    await Bun.write(
+      join(geçici, modülGirişi),
+      '"yardımcı dosyalar/ölçüler" içinden K kullan\nsabit k: K = K { x: 1 }',
+    );
+    karşılaştır(["denetle", modülGirişi], 0, "Denetim başarılı.\n");
+    await Bun.write(join(geçici, "geçici testler/modüller/durumlar.ata"), "seçenek D { a, b }");
+    await Bun.write(
+      join(geçici, modülGirişi),
+      '"durumlar" kullan\nsabit d: durumlar::D = durumlar::D::a\nd eşleştir { durumlar::D::a ise {} durumlar::D::b ise {} }',
+    );
+    karşılaştır(["denetle", modülGirişi], 0, "Denetim başarılı.\n");
+    await Bun.write(join(geçici, "geçici testler/modüller/başka.ata"), "yapı K { x: sayı }");
+    await Bun.write(
+      join(geçici, modülGirişi),
+      '"yardımcı dosyalar/ölçüler" kullan\n"başka" kullan\nsabit k: başka::K = ölçüler::K { x: 1 }',
+    );
+    karşılaştır(["denetle", modülGirişi], 1, "Tip uyuşmazlığı:");
+    await Bun.write(
+      join(geçici, modülGirişi),
       '"yardımcı dosyalar/ölçüler" kullan\nölçüler::kişi yazdır',
     );
-    karşılaştır(
-      ["denetle", modülGirişi],
-      1,
-      "Modüller arası kullanıcı tanımlı tipler bu geliştirme sürümünde henüz desteklenmiyor.",
-    );
+    karşılaştır(["denetle", modülGirişi], 0, "Denetim başarılı.\n");
     await Bun.write(yardımcı, '// bir\n// iki\n// üç\nsabit x: sayı = "yanlış"');
     karşılaştır(["denetle", modülGirişi], 1, "ölçüler.ata:4:17");
     karşılaştır(["çalıştır", modülGirişi], 1, "ATA4001");

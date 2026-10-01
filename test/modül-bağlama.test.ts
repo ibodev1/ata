@@ -27,6 +27,358 @@ async function proje(
 
 const matematik = "sabit pi = 3.14\nişlev topla(a: sayı, b: sayı): sayı { a + b döndür }";
 
+test("Unicode nominal tipler ve alias'ı gizleyen iç scope doğru çözülür", async () => {
+  await proje(
+    {
+      "ana.ata":
+        '"m" ö olarak kullan\n"m" içinden Öğrenci kullan\nsabit kişi: ö::Öğrenci = Öğrenci { ad: "Ata" }\nkişi.ad yazdır',
+      "m.ata": "yapı Öğrenci { ad: yazı }",
+    },
+    (sonuç) => expect(sonuç.tanılar).toEqual([]),
+  );
+  await proje(
+    {
+      "ana.ata": '"m" kullan\nişlev f(m: sayı): hiç { sabit k: m::K? = yok }',
+      "m.ata": "yapı K {}",
+    },
+    (sonuç) => expect(sonuç.tanılar.map((t) => t.kod)).toEqual(["ATA3004"]),
+  );
+});
+
+test("hatalı dependency tip çözümleme importer'da constructor/export cascade üretmez", async () => {
+  await proje(
+    {
+      "ana.ata": '"m" kullan\nsabit k: m::K = m::K { x: 1 }',
+      "m.ata": "yapı K { x: Olmayan }",
+    },
+    (sonuç) => {
+      expect(sonuç.tanılar.map((t) => t.kod)).toEqual(["ATA3004"]);
+      expect(sonuç.tanılar[0]?.yol.endsWith("m.ata")).toBe(true);
+      expect(sonuç.kataloglar.size).toBe(0);
+      expect(sonuç.analizler.size).toBe(1);
+    },
+  );
+});
+
+test(
+  "CLI qualified/selective/alias yapı ve seçenekleri, nominal imzaları ve mismatch'i doğrular",
+  async () => {
+    await proje(
+      {
+        "ana.ata": '"m" kullan',
+        "m.ata":
+          "yapı K { n: sayı }\nseçenek D { a, b }\nişlev üret(): K { K { n: 1 } döndür }\nişlev tüket(k: K): sayı { k.n döndür }",
+        "b.ata": "yapı K { n: sayı }",
+      },
+      async (_sonuç, kök) => {
+        const cli = fileURLToPath(new URL("../src/cli/cli.ts", import.meta.url));
+        for (const gövde of [
+          '"m" kullan\nsabit k: m::K = m::K { n: 1 }\nk.n yazdır',
+          '"m" içinden K kullan\nsabit k: K = K { n: 1 }',
+          '"m" mod olarak kullan\nsabit k: mod::K = mod::K { n: 1 }',
+          '"m" kullan\nsabit d: m::D = m::D::a\nd eşleştir { m::D::a ise {} m::D::b ise {} }',
+          '"m" içinden D kullan\nsabit d: D = D::a',
+          '"m" içinden K, üret, tüket kullan\nsabit k: K = üret()\ntüket(k) yazdır',
+        ]) {
+          // eslint-disable-next-line no-await-in-loop -- Entry her gerçek CLI senaryosu için değiştirilir.
+          await Bun.write(join(kök, "ana.ata"), gövde);
+          const sonuç = Bun.spawnSync([
+            process.execPath,
+            "run",
+            cli,
+            "denetle",
+            join(kök, "ana.ata"),
+          ]);
+          expect(sonuç.exitCode).toBe(0);
+          expect(sonuç.stdout.toString()).toBe("Denetim başarılı.\n");
+          expect(sonuç.stderr.toString()).toBe("");
+        }
+        await Bun.write(
+          join(kök, "ana.ata"),
+          '"m" kullan\n"b" kullan\nsabit k: b::K = m::K { n: 1 }',
+        );
+        const hata = Bun.spawnSync([
+          process.execPath,
+          "run",
+          cli,
+          "çalıştır",
+          join(kök, "ana.ata"),
+        ]);
+        expect(hata.exitCode).toBe(1);
+        expect(hata.stdout.toString()).toBe("");
+        expect(hata.stderr.toString()).toContain("ATA4001");
+        expect(hata.stderr.toString()).toContain("m.ata içindeki K");
+        expect(hata.stderr.toString()).toContain("b.ata içindeki K");
+        expect(hata.stderr.toString()).toContain("ana.ata:3:17");
+        expect(hata.stderr.toString()).not.toMatch(/Error:|Symbol\(|object@|Modül çalışma zamanı/);
+      },
+    );
+  },
+  ENTEGRASYON_ZAMAN_ASIMI_MS,
+);
+
+test("aynı adlı yapıların alan tabloları ve constructor tanıları origin'e göre ayrılır", async () => {
+  await proje(
+    {
+      "ana.ata":
+        '"a" kullan\n"b" kullan\nsabit x = a::Veri { n: 1 }\nsabit y = b::Veri { ad: "Ata" }\nx.n + 1 yazdır\ny.ad yazdır\nx.ad yazdır\ny.n yazdır\na::Veri { ad: "Ata" } yazdır',
+      "a.ata": "yapı Veri { n: sayı }",
+      "b.ata": "yapı Veri { ad: yazı }",
+    },
+    (sonuç) => {
+      expect(sonuç.tanılar.map((t) => t.kod)).toEqual(["ATA4019", "ATA4019", "ATA4017", "ATA4019"]);
+      expect(sonuç.tanılar.map((t) => t.aralık.başlangıç.satır)).toEqual([7, 8, 9, 9]);
+    },
+  );
+});
+
+test("nominal optional narrowing ve nested public liste imzası gerçek alan tipi taşır", async () => {
+  await proje(
+    {
+      "ana.ata": `"m" mod olarak kullan
+"./m" içinden K, o kullan
+sabit l: liste<K?> = mod::listele()
+eğer mod::o != yok ise { o.n + 1 yazdır }
+eğer o != yok ise { mod::o.n + 2 yazdır }
+sabit x = l[0]
+eğer x != yok ise { x.n yazdır }`,
+      "m.ata":
+        "yapı K { n: sayı }\nsabit o: K? = yok\nişlev listele(): liste<K?> { [K { n: 1 }, o] döndür }",
+    },
+    (sonuç) => expect(sonuç.tanılar).toEqual([]),
+  );
+});
+
+test("selective type tekrarları, çakışmaları ve çift value/type binding ayrılır", async () => {
+  for (const [ana, kodlar] of [
+    ['"a" içinden K kullan\n"./a" içinden K kullan', ["ATA6007"]],
+    ['"a" içinden K, K kullan', ["ATA6007"]],
+    ['"a" içinden K kullan\n"b" içinden K kullan', ["ATA3005"]],
+    ['"a" içinden K kullan\nyapı K {}', ["ATA3005"]],
+    ['"a" K olarak kullan\n"b" içinden K kullan', ["ATA3005"]],
+    ['"b" içinden K kullan\n"a" K olarak kullan', ["ATA3005"]],
+    ['"a" içinden D kullan\nsabit k: D = D {}\nD + 1 yazdır', []],
+    ['"a" içinden D kullan\n"./a" içinden D kullan', ["ATA6007"]],
+  ] as const) {
+    // eslint-disable-next-line no-await-in-loop -- Tek/çift namespace import kuralları ayrı projelerde denetlenir.
+    await proje(
+      { "ana.ata": ana, "a.ata": "yapı K {}\nyapı D {}\nsabit D = 1", "b.ata": "yapı K {}" },
+      (sonuç) => expect(sonuç.tanılar.map((t) => t.kod)).toEqual([...kodlar]),
+    );
+  }
+});
+
+test("qualified type/value kategorileri ve type re-export için sessiz fallback yoktur", async () => {
+  for (const [ana, kodlar, sütun] of [
+    ['"m" kullan\nsabit x: m::Olmayan = 1', ["ATA6004"], 13],
+    ['"m" kullan\nsabit x: m::n = 1', ["ATA6004"], 13],
+    ['"m" kullan\nm::K yazdır', ["ATA6004"], 4],
+    ['"m" içinden K kullan\nK yazdır', ["ATA3001"], 1],
+    ['"m" içinden n kullan\nsabit x: n = 1', ["ATA3004"], 10],
+    ['"m" kullan\nsabit x: m = 1', ["ATA3004"], 10],
+    ['"m" kullan\nyapı Olmayan {}\nsabit x: m::Olmayan = Olmayan {}', ["ATA6004"], 13],
+    ['"servis" kullan\nsabit x: servis::K = 1', ["ATA6004"], 18],
+  ] as const) {
+    // eslint-disable-next-line no-await-in-loop -- Her wrong-category erişim kendi bağlamında denetlenir.
+    await proje(
+      { "ana.ata": ana, "m.ata": "yapı K {}\nsabit n = 1", "servis.ata": '"m" içinden K kullan' },
+      (sonuç) => {
+        expect(sonuç.tanılar.map((t) => t.kod)).toEqual([...kodlar]);
+        expect(sonuç.tanılar[0]?.aralık.başlangıç.sütun).toBe(sütun);
+      },
+    );
+  }
+});
+
+test("transitive nominal imza ve alan metadata'sı type re-export olmadan inference ile taşınır", async () => {
+  await proje(
+    {
+      "ana.ata": `"servis" kullan
+sabit k = servis::oluştur()
+k.id.n yazdır
+k.d == servis::durum() yazdır
+servis::tüket(k.id) yazdır
+sabit l = servis::listele()
+l[0].id.n yazdır`,
+      "ortak.ata": "yapı Kimlik { n: sayı }\nseçenek Durum { Açık, Kapalı }",
+      "model.ata":
+        '"ortak" o olarak kullan\nyapı Kayıt { id: o::Kimlik, d: o::Durum }\nsabit k = Kayıt { id: o::Kimlik { n: 1 }, d: o::Durum::Açık }',
+      "servis.ata":
+        '"model" içinden Kayıt, k kullan\n"ortak" kullan\nişlev oluştur(): Kayıt { k döndür }\nişlev tüket(x: ortak::Kimlik): sayı { x.n döndür }\nişlev durum(): ortak::Durum { ortak::Durum::Açık döndür }\nişlev listele(): liste<Kayıt> { [k] döndür }',
+    },
+    (sonuç) => {
+      expect(sonuç.tanılar).toEqual([]);
+      expect(sonuç.kataloglar.size).toBe(4);
+      const servis = [...sonuç.kataloglar.values()].find((k) => k.modülYolu.endsWith("servis.ata"));
+      expect(servis?.tipler.size).toBe(0);
+    },
+  );
+});
+
+test("diamond nominal signature aynı shared declaration'ı farklı textual importlardan korur", async () => {
+  await proje(
+    {
+      "ana.ata": '"a" kullan\n"b" kullan\na::tüket(b::oluştur()) yazdır',
+      "a.ata": '"alt/../ortak" o olarak kullan\nişlev tüket(x: o::K): sayı { x.n döndür }',
+      "b.ata": '"./ortak" içinden K kullan\nişlev oluştur(): K { K { n: 1 } döndür }',
+      "ortak.ata": "yapı K { n: sayı }",
+    },
+    (sonuç) => {
+      expect(sonuç.tanılar).toEqual([]);
+      expect(sonuç.analizler.size).toBe(4);
+      const kataloglar = [...sonuç.kataloglar.values()];
+      const a = kataloglar[1]?.değerler.get("tüket");
+      const b = kataloglar[2]?.değerler.get("oluştur");
+      if (a?.tür !== "işlev" || b?.tür !== "işlev") throw new Error("İşlev bekleniyordu.");
+      const parametre = a.imza.parametreler[0];
+      const dönüş = b.imza.dönüş;
+      if (parametre?.tür !== "yapı" || dönüş.tür !== "yapı") throw new Error("Yapı bekleniyordu.");
+      expect(parametre.kimlik).toBe(dönüş.kimlik);
+      const kimlik = kataloglar[0]?.tipler.get("K");
+      if (!kimlik) throw new Error("Tip kimliği bekleniyordu.");
+      expect(dönüş.kimlik).toBe(kimlik);
+    },
+  );
+});
+
+test("namespace sabiti match pattern'ında seçenek üyesi yerine kullanılamaz", async () => {
+  await proje(
+    {
+      "ana.ata": '"m" kullan\nm::D::a eşleştir { m::n ise {} diğer ise {} }',
+      "m.ata": "seçenek D { a, b }\nsabit n = 1",
+    },
+    (sonuç) => expect(sonuç.tanılar.map((t) => t.kod)).toEqual(["ATA4025"]),
+  );
+});
+
+test("qualified ve selective seçenek varyantları exhaustive match ve return-flow'a katılır", async () => {
+  for (const [ön, tip] of [
+    ['"d" kullan', "d::Durum"],
+    ['"d" s olarak kullan', "s::Durum"],
+    ['"d" içinden Durum kullan', "Durum"],
+  ]) {
+    // eslint-disable-next-line no-await-in-loop -- Üç import biçimi aynı gerçek option üzerinde denetlenir.
+    await proje(
+      {
+        "ana.ata": `${ön}\nsabit durum: ${tip} = ${tip}::Aktif\nişlev puan(x: ${tip}): sayı { x eşleştir { ${tip}::Aktif ise { 1 döndür } ${tip}::Pasif ise { 0 döndür } } }\ndurum == ${tip}::Pasif yazdır\npuan(durum) yazdır`,
+        "d.ata": "seçenek Durum { Aktif, Pasif }",
+      },
+      (sonuç) => expect(sonuç.tanılar).toEqual([]),
+    );
+  }
+});
+
+test("aynı adlı seçenekler equality ve match üyelerini nominal kimliğe göre ayırır", async () => {
+  await proje(
+    {
+      "ana.ata": `"a" kullan
+"b" kullan
+sabit x = a::Durum::Aktif
+x == b::Durum::Aktif yazdır
+x eşleştir { b::Durum::Aktif ise {} a::Durum::Pasif ise {} }
+b::Durum::Olmayan yazdır
+a::Durum::Aktif eşleştir { a::Durum::Aktif ise {} a::Durum::Aktif ise {} }`,
+      "a.ata": "seçenek Durum { Aktif, Pasif }",
+      "b.ata": "seçenek Durum { Aktif, Yeni }",
+    },
+    (sonuç) => {
+      expect(sonuç.tanılar.map((t) => t.kod)).toEqual([
+        "ATA4011",
+        "ATA4030",
+        "ATA4028",
+        "ATA4026",
+        "ATA4030",
+        "ATA4029",
+      ]);
+      expect(sonuç.tanılar.find((t) => t.kod === "ATA4028")?.mesaj).toContain(
+        "b.ata içindeki Durum",
+      );
+      expect(sonuç.tanılar.find((t) => t.kod === "ATA4026")?.aralık.başlangıç.sütun).toBe(11);
+    },
+  );
+});
+
+test("namespace, alias ve selective tip aynı canonical declaration kimliğini korur", async () => {
+  for (const [ön, ad] of [
+    ['"m" kullan', "m"],
+    ['"alt/../m" mod olarak kullan', "mod"],
+  ]) {
+    // eslint-disable-next-line no-await-in-loop -- Aynı canonical tipe farklı importer söz dizimleriyle erişilir.
+    await proje(
+      {
+        "ana.ata": `${ön}\n"./m" içinden K kullan\nsabit a: ${ad}::K = K { n: 1 }\nsabit b: K = ${ad}::K { n: 2 }\nsabit o: ${ad}::K? = b\nsabit l: liste<K?> = [o, a]`,
+        "m.ata": "yapı K { n: sayı }",
+      },
+      (sonuç) => {
+        expect(sonuç.tanılar).toEqual([]);
+        const ana = [...sonuç.analizler.values()].at(-1);
+        const katalog = [...sonuç.kataloglar.values()][0];
+        if (!ana || !katalog) throw new Error("Analiz bekleniyordu.");
+        const kimlik = katalog.tipler.get("K");
+        if (!kimlik) throw new Error("Tip kimliği bekleniyordu.");
+        expect(ana.isimler.tipBildirimleri.get("K")).toBe(kimlik);
+        const nominal = [...ana.sembolTipleri]
+          .filter(([s]) => s.ad === "a" || s.ad === "b")
+          .map(([, t]) => t);
+        expect(nominal).toHaveLength(2);
+        for (const tip of nominal) {
+          if (tip.tür !== "yapı") throw new Error("Yapı tipi bekleniyordu.");
+          expect(tip.kimlik).toBe(kimlik);
+          expect(tip.kimlik.modülYolu).toBe(katalog.modülYolu);
+        }
+      },
+    );
+  }
+});
+
+test("aynı adlı farklı modül yapıları assignment, argüman, optional ve listelerde farklıdır", async () => {
+  await proje(
+    {
+      "ana.ata": `"a" kullan
+"b" kullan
+sabit k = a::K { n: 1 }
+sabit başka: b::K = k
+b::tüket(k)
+sabit o: b::K? = k
+sabit l: liste<b::K> = [k]
+sabit karışık = [k, b::K { n: 2 }]
+sabit iç: liste<liste<b::K>> = [[k]]`,
+      "a.ata": "yapı K { n: sayı }",
+      "b.ata": "yapı K { n: sayı }\nişlev tüket(k: K): hiç {}",
+    },
+    (sonuç) => {
+      expect(sonuç.tanılar.map((t) => t.kod)).toEqual([
+        "ATA4001",
+        "ATA4005",
+        "ATA4001",
+        "ATA4001",
+        "ATA4001",
+        "ATA4001",
+      ]);
+      const atama = sonuç.tanılar[0];
+      expect(atama?.mesaj).toBe(
+        "Tip uyuşmazlığı: 'a.ata içindeki K', 'b.ata içindeki K' tipine atanamaz.",
+      );
+      expect(atama?.aralık.başlangıç.satır).toBe(4);
+      expect(atama?.yol.endsWith("ana.ata")).toBe(true);
+    },
+  );
+});
+
+test("qualified yapı, nominal imza ve sabit origin alan tipleriyle denetlenir", async () => {
+  await proje(
+    {
+      "ana.ata":
+        '"modeller" kullan\nsabit k: modeller::K = modeller::K { n: 1 }\nmodeller::kişi_ver(k) yazdır\nmodeller::kişi_al().n yazdır\nmodeller::kişi.n yazdır',
+      "modeller.ata":
+        "yapı K { n: sayı }\nsabit kişi = K { n: 1 }\nişlev kişi_al(): K { kişi döndür }\nişlev kişi_ver(k: K): sayı { k.n döndür }",
+    },
+    (sonuç) => {
+      expect(sonuç.tanılar).toEqual([]);
+    },
+  );
+});
+
 test("namespace ve selective işlevler aynı argüman sayı/tip kurallarını kullanır", async () => {
   for (const [ön, ad] of [
     ['"matematik" kullan', "matematik::topla"],
@@ -65,7 +417,6 @@ işlev özyinele(x: sayı): sayı { eğer x == 0 ise { 0 döndür }; özyinele(x
       },
       (sonuç) => {
         expect(sonuç.tanılar).toEqual([]);
-        expect(sonuç.engeller).toEqual([]);
         const ana = [...sonuç.analizler.values()].at(-1)!;
         const tipler = [...ana.sembolTipleri]
           .filter(([sembol]) => ["a", "z", "c", "d", "e", "f", "g"].includes(sembol.ad))
@@ -100,7 +451,6 @@ eğer değer != yok ise { ayarlar::değer + 1 yazdır }`,
     },
     (sonuç) => {
       expect(sonuç.tanılar).toEqual([]);
-      expect(sonuç.engeller).toEqual([]);
     },
   );
   await proje(
@@ -183,21 +533,18 @@ test("namespace kullanılmayan nominal export nedeniyle engellenmez; primitive p
     { "ana.ata": '"modeller" kullan\nmodeller::güvenli(1) yazdır', "modeller.ata": modeller },
     (sonuç) => {
       expect(sonuç.tanılar).toEqual([]);
-      expect(sonuç.engeller).toEqual([]);
     },
   );
 });
 
-test("nominal içeren sabit ve işlev public yüzeyi recursive guard ile fail-closed kalır", async () => {
+test("nominal içeren sabit ve işlev public yüzeyi origin kimliğini recursive korur", async () => {
   for (const ad of ["kişi", "kişiler", "belki", "durum", "bileşik", "kişi_al", "kişi_ver"]) {
-    // eslint-disable-next-line no-await-in-loop -- Her public nominal yüzey kendi kullanım noktasında engellenir.
+    // eslint-disable-next-line no-await-in-loop -- Her public nominal yüzey kendi kullanım noktasında denetlenir.
     await proje(
       { "ana.ata": `"modeller" içinden ${ad} kullan`, "modeller.ata": modeller },
       (sonuç) => {
         expect(sonuç.tanılar).toEqual([]);
-        expect(sonuç.engeller.map((engel) => engel.mesaj)).toEqual([
-          "Modüller arası kullanıcı tanımlı tipler bu geliştirme sürümünde henüz desteklenmiyor.",
-        ]);
+        expect(sonuç.kataloglar.size).toBe(2);
       },
     );
   }
@@ -205,26 +552,24 @@ test("nominal içeren sabit ve işlev public yüzeyi recursive guard ile fail-cl
     { "ana.ata": '"modeller" kullan\nmodeller::kişi_al() yazdır', "modeller.ata": modeller },
     (sonuç) => {
       expect(sonuç.tanılar).toEqual([]);
-      expect(sonuç.engeller).toHaveLength(1);
+      expect(sonuç.kataloglar.size).toBe(2);
     },
   );
 });
 
-test("gerçek tip export'u ATA6004 almaz; selective ve namespace tip erişimi geliştirme engeli alır", async () => {
+test("gerçek tip export'u selective ve namespace üzerinden çözümlenir", async () => {
   await proje(
     { "ana.ata": '"modeller" içinden K kullan\nsabit k: K? = yok', "modeller.ata": modeller },
     (sonuç) => {
       expect(sonuç.tanılar).toEqual([]);
-      expect(sonuç.engeller.map((engel) => engel.mesaj)).toEqual([
-        "Modüller arası tip kullanımı bu geliştirme sürümünde henüz desteklenmiyor.",
-      ]);
+      expect(sonuç.kataloglar.size).toBe(2);
     },
   );
   await proje(
     { "ana.ata": '"modeller" kullan\nmodeller::D::açık yazdır', "modeller.ata": modeller },
     (sonuç) => {
       expect(sonuç.tanılar).toEqual([]);
-      expect(sonuç.engeller).toHaveLength(1);
+      expect(sonuç.kataloglar.size).toBe(2);
     },
   );
 });
@@ -251,7 +596,6 @@ test("alias yalnız seçilen namespace'i bağlar; default ad ayrıca eklenmez", 
     },
     (sonuç) => {
       expect(sonuç.tanılar).toEqual([]);
-      expect(sonuç.engeller).toEqual([]);
     },
   );
   await proje(
@@ -460,7 +804,6 @@ test("namespace ve selective erişim aynı gerçek export sembolünü ve çözü
     },
     (sonuç) => {
       expect(sonuç.tanılar).toEqual([]);
-      expect(sonuç.engeller).toEqual([]);
       const analizler = [...sonuç.analizler.values()];
       expect(analizler).toHaveLength(2);
       const ana = analizler[1]!;
@@ -554,33 +897,39 @@ test(
 );
 
 test(
-  "CLI nominal public yüzey ve gerçek type import'u kodsuz geliştirme mesajıyla fail-closed tutar",
+  "CLI nominal public yüzey ve gerçek type import'unu denetler; runtime kapalı kalır",
   async () => {
     await proje(
       { "ana.ata": '"modeller" kullan', "modeller.ata": modeller },
       async (_sonuç, kök) => {
         const cli = fileURLToPath(new URL("../src/cli/cli.ts", import.meta.url));
-        for (const [gövde, mesaj] of [
-          [
-            '"modeller" kullan\nmodeller::kişi_al() yazdır',
-            "Modüller arası kullanıcı tanımlı tipler bu geliştirme sürümünde henüz desteklenmiyor.",
-          ],
-          [
-            '"modeller" içinden K kullan',
-            "Modüller arası tip kullanımı bu geliştirme sürümünde henüz desteklenmiyor.",
-          ],
+        for (const gövde of [
+          '"modeller" kullan\nmodeller::kişi_al() yazdır',
+          '"modeller" içinden K kullan\nsabit k: K = K { n: 1 }',
         ]) {
-          // eslint-disable-next-line no-await-in-loop -- Geliştirme guard'ları ayrı CLI çağrılarında doğrulanır.
-          await Bun.write(join(kök, "ana.ata"), gövde!);
+          // eslint-disable-next-line no-await-in-loop -- Nominal kullanım biçimleri ayrı CLI çağrılarında doğrulanır.
+          await Bun.write(join(kök, "ana.ata"), gövde);
           const sonuç = Bun.spawnSync(
             [process.execPath, "run", cli, "denetle", join(kök, "ana.ata")],
             { cwd: tmpdir() },
           );
-          expect(sonuç.exitCode).toBe(1);
-          expect(sonuç.stdout.toString()).toBe("");
-          expect(sonuç.stderr.toString()).toContain(mesaj!);
+          expect(sonuç.exitCode).toBe(0);
+          expect(sonuç.stdout.toString()).toBe("Denetim başarılı.\n");
+          expect(sonuç.stderr.toString()).toBe("");
           expect(sonuç.stderr.toString()).not.toContain("ATA6004");
           expect(sonuç.stderr.toString()).not.toContain("Error:");
+          const yürütme = Bun.spawnSync([
+            process.execPath,
+            "run",
+            cli,
+            "çalıştır",
+            join(kök, "ana.ata"),
+          ]);
+          expect(yürütme.exitCode).toBe(1);
+          expect(yürütme.stdout.toString()).toBe("");
+          expect(yürütme.stderr.toString()).toBe(
+            "Modül çalışma zamanı bu geliştirme sürümünde henüz desteklenmiyor.\n",
+          );
         }
       },
     );

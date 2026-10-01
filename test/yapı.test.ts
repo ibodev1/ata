@@ -152,7 +152,7 @@ test("yapı/indeks alan tipleri yan tabloda çıkarılır", () => {
       .map((bildirim) =>
         bildirim.tür === "ifade-bildirimi" ? analiz.ifadeTipleri.get(bildirim.ifade) : null,
       ),
-  ).toEqual([{ tür: "yazı" }, { tür: "sayı" }, { tür: "yapı", ad: "K" }, { tür: "sayı" }]);
+  ).toMatchObject([{ tür: "yazı" }, { tür: "sayı" }, { tür: "yapı", ad: "K" }, { tür: "sayı" }]);
 });
 
 test("yapı tek yeni keyword'dür; yapı adları Unicode tanımlayıcı olarak kalır", () => {
@@ -338,7 +338,7 @@ test("ileri ve recursive yapı tipleri ayrı tip ad alanında çözülür ve nom
   expect(analiz.tanılar).toEqual([]);
   const kişi = program.bildirimler[3];
   if (kişi?.tür !== "sabit") throw new Error("Değer bekleniyordu.");
-  expect(analiz.ifadeTipleri.get(kişi.başlangıç)).toEqual({ tür: "yapı", ad: "Kullanıcı" });
+  expect(analiz.ifadeTipleri.get(kişi.başlangıç)).toMatchObject({ tür: "yapı", ad: "Kullanıcı" });
   expect(
     analizEt(
       programıAl("yapı A { x: sayı }; yapı B { x: sayı }; sabit a: A = B { x: 1 }"),
