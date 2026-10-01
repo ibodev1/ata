@@ -215,7 +215,10 @@ test(
       async (kök) => {
         const args = [process.execPath, "run", cli, "denetle", join(kök, "ana.ata")];
         expect(Bun.spawnSync(args, { cwd: kök }).exitCode).toBe(0);
-        await Bun.write(join(kök, "ana.ata"), '"a" içinden x kullan\n"b" kullan\nx yazdır');
+        await Bun.write(join(kök, "ana.ata"), '"a" kullan\n"b" kullan\nx yazdır');
+        const görünmeyen = Bun.spawnSync(args, { cwd: kök });
+        expect(görünmeyen.exitCode).toBe(1);
+        expect(görünmeyen.stderr.toString()).toContain("ATA3001");
         await Bun.write(join(kök, "a.ata"), 'sabit x: sayı = "a"');
         await Bun.write(join(kök, "b.ata"), 'sabit x: sayı = "b"');
         const sonuç = Bun.spawnSync(args, { cwd: kök });
@@ -225,10 +228,9 @@ test(
         expect([...hata.matchAll(/--> (.+):\d+:\d+/g)].map((eşleşme) => eşleşme[1])).toEqual([
           "a.ata",
           "b.ata",
-          "ana.ata",
         ]);
         expect(hata.match(/ATA4001/g)).toHaveLength(2);
-        expect(hata).toContain("ATA3001");
+        expect(hata).not.toContain("ATA3001");
       },
     );
   },

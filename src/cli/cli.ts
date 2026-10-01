@@ -1,7 +1,7 @@
 import { modülleriYükle } from "../modüller/yükleyici.ts";
 import { modülGörünenYolu } from "../modüller/yol.ts";
 import type { Tanı } from "../tanılama/tanı.ts";
-import { analizEt } from "../analiz/analiz.ts";
+import { modülleriAnalizEt } from "../analiz/modüller.ts";
 import { yorumla } from "../çalışma/yorumlayıcı.ts";
 import { tanıyıGöster } from "../tanılama/göster.ts";
 import { version as sürüm } from "../../package.json";
@@ -60,13 +60,15 @@ async function cli(argümanlar: readonly string[]): Promise<number> {
   tanılarıYaz(yükleme.tanılar);
   const grafik = yükleme.grafik;
   if (!grafik) return 1;
-  let statikHata = false;
-  for (const modül of grafik.sıra) {
-    const analiz = analizEt(modül.program, modül.kanonikYol);
-    tanılarıYaz(analiz.tanılar);
-    if (analiz.tanılar.some((tanı) => tanı.seviye === "hata")) statikHata = true;
+  const analiz = modülleriAnalizEt(grafik);
+  tanılarıYaz(analiz.tanılar);
+  for (const engel of analiz.engeller) {
+    const { satır, sütun } = engel.aralık.başlangıç;
+    console.error(
+      `${engel.mesaj}\n  --> ${modülGörünenYolu(kanonikGiriş, engel.yol)}:${satır}:${sütun}`,
+    );
   }
-  if (statikHata) return 1;
+  if (analiz.tanılar.some((tanı) => tanı.seviye === "hata") || analiz.engeller.length) return 1;
   if (komut === "denetle") {
     console.log("Denetim başarılı.");
     return 0;

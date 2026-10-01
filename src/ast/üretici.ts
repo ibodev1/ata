@@ -287,6 +287,24 @@ export class AstÜreticisi {
   }
 
   private ifade(düğüm: CstNode): İfade {
+    if (düğüm.children.nitelikliAd) return this.ifade(alt(düğüm, "nitelikliAd"));
+    if (düğüm.name === "nitelikliAd") {
+      const parçalar = (düğüm.children.parça ?? []).map((_, i) => {
+        const parça = token(düğüm, "parça", i);
+        return {
+          ad: parça.image,
+          aralık: aralıkBul(this.kaynak, parça.startOffset, parça.startOffset + parça.image.length),
+        };
+      });
+      const ilk = parçalar.shift();
+      const ikinci = parçalar.shift();
+      if (!ilk || !ikinci) throw new Error("Nitelikli ad en az iki segment gerektirir.");
+      return {
+        tür: "nitelikli-ad",
+        parçalar: [ilk, ikinci, ...parçalar],
+        aralık: this.aralık(düğüm),
+      };
+    }
     if (düğüm.name === "seçenekDeğeri") return this.seçenekDeğeri(düğüm);
     if (düğüm.children.seçenekDeğeri) return this.seçenekDeğeri(alt(düğüm, "seçenekDeğeri"));
     const aralık = this.aralık(düğüm);

@@ -92,6 +92,11 @@ export interface SeçenekDeğeriİfadesi extends Düğüm {
   readonly üyeAdı: string;
 }
 
+export interface NitelikliAdİfadesi extends Düğüm {
+  readonly tür: "nitelikli-ad";
+  readonly parçalar: readonly [KullanAdı, KullanAdı, ...KullanAdı[]];
+}
+
 export interface EşleştirmeKolu extends Düğüm {
   readonly desen: SeçenekDeğeriİfadesi | (Düğüm & { readonly tür: "diğer" });
   readonly blok: Blok;
@@ -144,6 +149,7 @@ export type YazıParçası =
 
 export type İfade =
   | SeçenekDeğeriİfadesi
+  | NitelikliAdİfadesi
   | (Düğüm & {
       readonly tür: "yapı-oluşturma";
       readonly yapıAdı: string;

@@ -160,6 +160,14 @@ class AtaAyrıştırıcısı extends CstParser {
     this.CONSUME2(Ad, { LABEL: "üye" });
   });
 
+  readonly nitelikliAd = this.RULE("nitelikliAd", () => {
+    this.CONSUME(Ad, { LABEL: "parça" });
+    this.AT_LEAST_ONE(() => {
+      this.CONSUME(tokenTürü("ÇiftİkiNokta"));
+      this.CONSUME2(Ad, { LABEL: "parça" });
+    });
+  });
+
   readonly eşleştirmeSonu = this.RULE("eşleştirmeSonu", () => {
     this.CONSUME(tokenTürü("eşleştir"));
     this.SUBRULE(this.satırlar);
@@ -448,7 +456,7 @@ class AtaAyrıştırıcısı extends CstParser {
       { ALT: () => this.CONSUME(tokenTürü("doğru"), { LABEL: "değer" }) },
       { ALT: () => this.CONSUME(tokenTürü("yanlış"), { LABEL: "değer" }) },
       { ALT: () => this.CONSUME(tokenTürü("yok"), { LABEL: "değer" }) },
-      { ALT: () => this.SUBRULE(this.seçenekDeğeri) },
+      { ALT: () => this.SUBRULE(this.nitelikliAd) },
       { ALT: () => this.SUBRULE(this.yapıOluşturma) },
       { ALT: () => this.CONSUME(Ad, { LABEL: "değer" }) },
       {

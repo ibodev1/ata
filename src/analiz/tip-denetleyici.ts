@@ -16,6 +16,10 @@ const bilinmeyen: Tip = { tür: "bilinmeyen" };
 const sayı: Tip = { tür: "sayı" };
 const mantık: Tip = { tür: "mantık" };
 
+function bağlıAd(ifade: İfade): boolean {
+  return ifade.tür === "tanımlayıcı" || ifade.tür === "nitelikli-ad";
+}
+
 type Daraltmalar = ReadonlyMap<Sembol, Tip>;
 interface KoşulBilgisi {
   readonly tip: Tip;
@@ -55,6 +59,11 @@ export function tipleriDenetle(
   const ifadeTipleri = new Map<İfade, Tip>();
   const sembolTipleri = new Map<Sembol, Tip>();
   const işlevİmzaları = new Map<Sembol, İşlevİmzası>();
+  for (const [sembol, aktarım] of isimler.içeAktarımlar) {
+    if (isimler.engellenenSemboller.has(sembol)) continue;
+    if (aktarım.tür === "sabit") sembolTipleri.set(sembol, aktarım.tip);
+    else işlevİmzaları.set(sembol, aktarım.imza);
+  }
   const yapıAlanları = new Map<string, ReadonlyMap<string, Tip>>();
   const globalDeğişkenler = new Set<Sembol>();
   for (const bildirim of program.bildirimler) {
@@ -167,6 +176,7 @@ export function tipleriDenetle(
       case "yapı":
       case "seçenek":
       case "seçenek-değeri":
+      case "nitelikli-ad":
       case "tanımlayıcı":
       case "sayı":
       case "mantık":
@@ -191,6 +201,7 @@ export function tipleriDenetle(
       case "adlandırılmış-tip": {
         const bildirim = isimler.tipBildirimleri.get(ifade.ad);
         if (bildirim) return { tür: bildirim.tür, ad: ifade.ad };
+        if (isimler.engellenenAdlar.has(ifade.ad)) return bilinmeyen;
         hata("ATA3004", `Tanımlanmamış tip: '${ifade.ad}'.`, ifade.aralık);
         return bilinmeyen;
       }
@@ -272,6 +283,11 @@ export function tipleriDenetle(
 
   function ifadeTipi(ifade: İfade, beklenen?: Tip): Tip {
     switch (ifade.tür) {
+      case "nitelikli-ad": {
+        const seçenek = isimler.seçenekErişimleri.get(ifade);
+        if (seçenek) return ifadeTipi(seçenek);
+        return sembolDeğeri(ifade);
+      }
       case "seçenek-değeri": {
         const bildirim = isimler.tipBildirimleri.get(ifade.seçenekAdı);
         if (!bildirim) {
@@ -379,16 +395,7 @@ export function tipleriDenetle(
       case "yok":
         return { tür: ifade.tür };
       case "tanımlayıcı": {
-        const sembol = isimler.bağlar.get(ifade);
-        if (sembol?.tür === "işlev" || sembol?.tür === "yerleşik") {
-          hata(
-            "ATA4010",
-            `İşlev '${sembol.ad}' yalnızca çağrı hedefi olarak kullanılabilir.`,
-            ifade.aralık,
-          );
-          return bilinmeyen;
-        }
-        return sembol ? (akış.get(sembol) ?? sembolTipleri.get(sembol) ?? bilinmeyen) : bilinmeyen;
+        return sembolDeğeri(ifade);
       }
       case "tekli": {
         const tip = ifadeDenetle(ifade.ifade);
@@ -407,9 +414,9 @@ export function tipleriDenetle(
         let sağ = ifadeDenetle(ifade.sağ);
         // Önceden daraltılmış optional adın yeniden yok testi, temel tipe göre geçerlidir.
         if (ifade.işleç === "==" || ifade.işleç === "!=") {
-          if (ifade.sol.tür === "tanımlayıcı" && ifade.sağ.tür === "yok")
+          if (bağlıAd(ifade.sol) && ifade.sağ.tür === "yok")
             sol = karşılaştırmaTipi(ifade.sol, sol);
-          if (ifade.sağ.tür === "tanımlayıcı" && ifade.sol.tür === "yok")
+          if (bağlıAd(ifade.sağ) && ifade.sol.tür === "yok")
             sağ = karşılaştırmaTipi(ifade.sağ, sağ);
         }
         return ikiliTip(ifade.işleç, sol, sağ, ifade.aralık);
@@ -461,8 +468,7 @@ export function tipleriDenetle(
         return hedef;
       }
       case "çağrı": {
-        const sembol =
-          ifade.çağrılan.tür === "tanımlayıcı" ? isimler.bağlar.get(ifade.çağrılan) : undefined;
+        const sembol = bağlıAd(ifade.çağrılan) ? isimler.bağlar.get(ifade.çağrılan) : undefined;
         if (sembol?.tür === "yerleşik") {
           const işlev = sembol.işlev;
           if (!argümanSayısıUygun(işlev, ifade.argümanlar.length)) {
@@ -522,6 +528,28 @@ export function tipleriDenetle(
     }
   }
 
+  function sembolDeğeri(ifade: İfade): Tip {
+    const sembol = isimler.bağlar.get(ifade);
+    if (!sembol || isimler.engellenenSemboller.has(sembol)) return bilinmeyen;
+    if (sembol.tür === "modül") {
+      hata(
+        "ATA4035",
+        `'${sembol.ad}' bir modül ad alanıdır; değer olarak kullanılamaz.`,
+        ifade.aralık,
+      );
+      return bilinmeyen;
+    }
+    if (sembol.tür === "işlev" || sembol.tür === "yerleşik") {
+      hata(
+        "ATA4010",
+        `İşlev '${sembol.ad}' yalnızca çağrı hedefi olarak kullanılabilir.`,
+        ifade.aralık,
+      );
+      return bilinmeyen;
+    }
+    return akış.get(sembol) ?? sembolTipleri.get(sembol) ?? bilinmeyen;
+  }
+
   function karşılaştırmaTipi(ifade: İfade, akışTipi: Tip): Tip {
     const sembol = isimler.bağlar.get(ifade);
     const temel = sembol ? sembolTipleri.get(sembol) : undefined;
@@ -567,9 +595,9 @@ export function tipleriDenetle(
       (ifade.işleç === "==" || ifade.işleç === "!=")
     ) {
       const hedef =
-        ifade.sol.tür === "tanımlayıcı" && ifade.sağ.tür === "yok"
+        bağlıAd(ifade.sol) && ifade.sağ.tür === "yok"
           ? ifade.sol
-          : ifade.sağ.tür === "tanımlayıcı" && ifade.sol.tür === "yok"
+          : bağlıAd(ifade.sağ) && ifade.sol.tür === "yok"
             ? ifade.sağ
             : undefined;
       const sembol = hedef ? isimler.bağlar.get(hedef) : undefined;

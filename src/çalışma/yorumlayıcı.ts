@@ -33,6 +33,19 @@ export function yorumla(program: Program, seçenekler: YorumlamaSeçenekleri): Y
   const tipBildirimleri = new Map<string, YapıBildirimi | SeçenekBildirimi>();
   function değerlendir(ifade: İfade, ortam: Ortam): Değer {
     switch (ifade.tür) {
+      case "nitelikli-ad": {
+        if (ifade.parçalar.length !== 2)
+          return hata("ATA5005", "Çalışma zamanında geçersiz seçenek değeri.", ifade.aralık);
+        return değerlendir(
+          {
+            tür: "seçenek-değeri",
+            seçenekAdı: ifade.parçalar[0].ad,
+            üyeAdı: ifade.parçalar[1].ad,
+            aralık: ifade.aralık,
+          },
+          ortam,
+        );
+      }
       case "seçenek-değeri": {
         const seçenek = tipBildirimleri.get(ifade.seçenekAdı);
         if (seçenek?.tür !== "seçenek" || !seçenek.üyeler.some((üye) => üye.ad === ifade.üyeAdı))

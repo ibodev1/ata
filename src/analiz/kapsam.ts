@@ -1,6 +1,8 @@
 import type { DeğerBildirimi, İşlevBildirimi, Parametre, ListeDöngüsü } from "../ast/düğümler.ts";
 import type { KaynakAralığı } from "../kaynak/konum.ts";
 import type { Yerleşikİşlev } from "../standart/yerleşikler.ts";
+import type { KullanBildirimi } from "../ast/düğümler.ts";
+import type { ModülDışaAktarımları } from "./modül-bağları.ts";
 
 interface SembolTemeli {
   readonly ad: string;
@@ -8,6 +10,11 @@ interface SembolTemeli {
 }
 
 export type Sembol =
+  | (SembolTemeli & {
+      readonly tür: "modül";
+      readonly bildirim: KullanBildirimi;
+      readonly katalog: ModülDışaAktarımları;
+    })
   | (SembolTemeli & {
       readonly tür: "değer";
       readonly bildirim: DeğerBildirimi;

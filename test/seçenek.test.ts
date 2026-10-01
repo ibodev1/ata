@@ -28,9 +28,8 @@ test("seçenek bildirimi ve değeri ayrı AST düğümleridir", () => {
   const değer = program.bildirimler[1];
   if (değer?.tür !== "sabit") throw new Error("Sabit bekleniyordu.");
   expect(değer.başlangıç).toMatchObject({
-    tür: "seçenek-değeri",
-    seçenekAdı: "Durum",
-    üyeAdı: "açık",
+    tür: "nitelikli-ad",
+    parçalar: [{ ad: "Durum" }, { ad: "açık" }],
   });
 });
 

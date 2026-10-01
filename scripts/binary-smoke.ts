@@ -116,9 +116,9 @@ async function smoke() {
     const yardımcı = join(geçici, "geçici testler/modüller/yardımcı dosyalar/ölçüler.ata");
     await Bun.write(
       join(geçici, modülGirişi),
-      '"yardımcı dosyalar/ölçüler" mat olarak kullan\n"ana" yazdır',
+      '"yardımcı dosyalar/ölçüler" kullan\nölçüler::topla(ölçüler::pi, 2) yazdır',
     );
-    await Bun.write(yardımcı, "uzunluk([1, 2]) yazdır");
+    await Bun.write(yardımcı, "sabit pi = 3\nişlev topla(a: sayı, b: sayı): sayı { a + b döndür }");
     for (const giriş of [modülGirişi, resolve(geçici, modülGirişi)]) {
       karşılaştır(["denetle", giriş], 0, "Denetim başarılı.\n");
       karşılaştır(
@@ -127,6 +127,43 @@ async function smoke() {
         "Modül çalışma zamanı bu geliştirme sürümünde henüz desteklenmiyor.",
       );
     }
+    await Bun.write(
+      join(geçici, modülGirişi),
+      '"yardımcı dosyalar/ölçüler" mat olarak kullan\nmat::topla(mat::pi, 2) yazdır',
+    );
+    karşılaştır(["denetle", modülGirişi], 0, "Denetim başarılı.\n");
+    await Bun.write(
+      join(geçici, modülGirişi),
+      '"yardımcı dosyalar/ölçüler" içinden pi, topla kullan\ntopla(pi, 2) yazdır',
+    );
+    karşılaştır(["denetle", modülGirişi], 0, "Denetim başarılı.\n");
+    for (const [gövde, kod] of [
+      ['"yardımcı dosyalar/ölçüler" kullan\nölçüler::olmayan()', "ATA6004"],
+      ['"yardımcı dosyalar/ölçüler" kullan\nölçüler yazdır', "ATA4035"],
+      [
+        '"yardımcı dosyalar/ölçüler" kullan\n"yardımcı dosyalar/./ölçüler" mat olarak kullan',
+        "ATA6007",
+      ],
+    ] as const) {
+      // eslint-disable-next-line no-await-in-loop -- Aynı entry her kaynak/binary karşılaştırmasından önce değiştirilir.
+      await Bun.write(join(geçici, modülGirişi), gövde);
+      karşılaştır(["çalıştır", modülGirişi], 1, kod);
+    }
+    await Bun.write(join(geçici, "geçici testler/modüller/foo-bar.ata"), "sabit değer = 1");
+    await Bun.write(join(geçici, modülGirişi), '"foo-bar" kullan');
+    karşılaştır(["denetle", modülGirişi], 1, "ATA6005");
+    await Bun.write(join(geçici, modülGirişi), '"foo-bar" fb olarak kullan\nfb::değer yazdır');
+    karşılaştır(["denetle", modülGirişi], 0, "Denetim başarılı.\n");
+    await Bun.write(yardımcı, "yapı K { x: sayı }\nsabit kişi = K { x: 1 }");
+    await Bun.write(
+      join(geçici, modülGirişi),
+      '"yardımcı dosyalar/ölçüler" kullan\nölçüler::kişi yazdır',
+    );
+    karşılaştır(
+      ["denetle", modülGirişi],
+      1,
+      "Modüller arası kullanıcı tanımlı tipler bu geliştirme sürümünde henüz desteklenmiyor.",
+    );
     await Bun.write(yardımcı, '// bir\n// iki\n// üç\nsabit x: sayı = "yanlış"');
     karşılaştır(["denetle", modülGirişi], 1, "ölçüler.ata:4:17");
     karşılaştır(["çalıştır", modülGirişi], 1, "ATA4001");
