@@ -1,5 +1,6 @@
 import type { YapıBildirimi, SeçenekBildirimi } from "../ast/düğümler.ts";
-import { basename, dirname, relative } from "node:path";
+import { basename } from "node:path";
+import { modülGörünenYolu } from "../modüller/yol.ts";
 
 export interface TipSembolü {
   readonly modülYolu: string;
@@ -44,7 +45,7 @@ export function atanabilir(kaynak: Tip, hedef: Tip): boolean {
 export function tipiGöster(tip: Tip, köken = false, girişYolu?: string): string {
   if (tip.tür === "yapı" || tip.tür === "seçenek")
     return köken
-      ? `${girişYolu ? relative(dirname(girişYolu), tip.kimlik.modülYolu).replaceAll("\\", "/") : basename(tip.kimlik.modülYolu)} içindeki ${tip.ad}`
+      ? `${girişYolu ? modülGörünenYolu(girişYolu, tip.kimlik.modülYolu) : basename(tip.kimlik.modülYolu)} içindeki ${tip.ad}`
       : tip.ad;
   if (tip.tür === "liste") return `liste<${tipiGöster(tip.eleman, köken, girişYolu)}>`;
   if (tip.tür === "isteğe-bağlı") return `${tipiGöster(tip.temel, köken, girişYolu)}?`;

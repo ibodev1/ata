@@ -57,6 +57,7 @@ test("filesystem hata sınıfları missing ile okuma/izin hatasını ayırır ve
     expect(modülDosyaHatası({ code }, "m.ata").kod).toBe("ATA6001");
   for (const hata of [
     { code: "EACCES", message: "gizli ayrıntı" },
+    { code: "EPERM" },
     { code: "EIO" },
     new TypeError("decoder ayrıntısı"),
   ]) {

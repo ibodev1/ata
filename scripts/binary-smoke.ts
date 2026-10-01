@@ -16,7 +16,7 @@ function çalıştır(komut: string[], cwd: string, binary: boolean, girdi: stri
 }
 
 async function smoke() {
-  const geçici = await mkdtemp(join(tmpdir(), "ata-binary-"));
+  const geçici = await mkdtemp(join(tmpdir(), "ata-binary Ölçü & (test)-"));
   try {
     const binary = join(geçici, derlemeHedefi([]).dosya);
     const hedef = derlemeHedefi([]);
@@ -222,7 +222,45 @@ async function smoke() {
     await Bun.write(yardımcı, '"../../modüller/ana" kullan');
     karşılaştır(["denetle", modülGirişi], 1, "ATA6003");
     await Bun.write(join(geçici, modülGirişi), '"olmayan" kullan');
+    // CWD ve executable dizinindeki aynı ad importer-relative missing hatasını gizleyemez.
+    await Bun.write(join(geçici, "olmayan.ata"), "sabit değer = 1");
     karşılaştır(["denetle", modülGirişi], 1, "ATA6001");
+    await Bun.write(
+      join(geçici, "geçici testler/ortak veriler/foo-bar.ata"),
+      "yapı K { n: sayı }\nseçenek D { A, B }\nişlev yenile(k: K): K { K { n: k.n + 1 } döndür }\nişlev durum(): D { D::A döndür }",
+    );
+    await Bun.write(
+      join(geçici, modülGirişi),
+      '"../ortak veriler/foo-bar" mat olarak kullan\n"../ortak veriler/./foo-bar" içinden K, D, yenile kullan\nyenile(mat::K { n: 10 }).n yazdır\nmat::durum() == D::A yazdır\nmat::durum() eşleştir { D::A ise { "aktif" yazdır } mat::D::B ise { "pasif" yazdır } }',
+    );
+    for (const giriş of [modülGirişi, resolve(geçici, modülGirişi)]) {
+      karşılaştır(["denetle", giriş], 0, "Denetim başarılı.\n");
+      karşılaştır(["çalıştır", giriş], 0, "11\ndoğru\naktif\n");
+    }
+    await Promise.all([
+      Bun.write(join(geçici, modülGirişi), '"a/m" a olarak kullan\n"b/m" b olarak kullan'),
+      Bun.write(join(geçici, "geçici testler/modüller/a/m.ata"), "// ölçü\r\n@"),
+      Bun.write(join(geçici, "geçici testler/modüller/b/m.ata"), "// şĞ🌍\r\nsabit = 1"),
+    ]);
+    karşılaştır(["denetle", modülGirişi], 1, "a/m.ata:2:1");
+    karşılaştır(["çalıştır", modülGirişi], 1, "b/m.ata:2:7");
+    await Promise.all([
+      Bun.write(join(geçici, modülGirişi), '"a/m" a olarak kullan\na::çağır() yazdır'),
+      Bun.write(
+        join(geçici, "geçici testler/modüller/a/m.ata"),
+        '"../b/m" b olarak kullan\nişlev çağır(): sayı { b::böl(1) döndür }',
+      ),
+      Bun.write(
+        join(geçici, "geçici testler/modüller/b/m.ata"),
+        "// ölçü 🌍\r\nişlev böl(x: sayı): sayı { x / 0 döndür }",
+      ),
+    ]);
+    karşılaştır(["çalıştır", modülGirişi], 1, "b/m.ata:2:28");
+    await Bun.write(
+      join(geçici, "geçici testler/modüller/a/m.ata"),
+      '"../b/m" b olarak kullan\nişlev çağır(): sayı { b::böl(1 / 0) döndür }',
+    );
+    karşılaştır(["çalıştır", modülGirişi], 1, "a/m.ata:2:30");
     console.log(
       `Binary smoke başarılı: ${sayı} kaynak/binary karşılaştırması; depo dışında, PATH boş.`,
     );
