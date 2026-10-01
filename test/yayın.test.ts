@@ -6,6 +6,7 @@ import {
   yayınUrl,
   sağlamaÜret,
   sağlamaDoğrula,
+  önSürümMü,
 } from "../scripts/yayın.ts";
 
 test("SHA-256 standart sabit vektörle üretilir ve doğrulanır", () => {
@@ -13,6 +14,13 @@ test("SHA-256 standart sabit vektörle üretilir ve doğrulanır", () => {
   const metin = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad  ata-linux-x64\n";
   expect(sağlamaÜret({ "ata-linux-x64": veri })).toBe(metin);
   expect(() => sağlamaDoğrula(metin, "ata-linux-x64", veri)).not.toThrow();
+});
+
+test("RC/dev ön sürümdür, final sürüm prerelease değildir", () => {
+  expect(önSürümMü("0.1.0-rc.3")).toBe(true);
+  expect(önSürümMü("0.1.0-dev.10")).toBe(true);
+  expect(önSürümMü("0.1.0")).toBe(false);
+  expect(() => önSürümMü("yanlış")).toThrow("Geçersiz sürüm");
 });
 
 test("bir bayt değişikliği ve eksik/bozuk checksum kurulumu reddeder", () => {
@@ -54,9 +62,10 @@ test("RC URL ve tag eşleşmesi güvenli biçimde doğrulanır", () => {
   );
   expect(() => tagDoğrula("v0.1.0")).toThrow("uyuşmazlığı");
   expect(() => tagDoğrula("v0.1.0-rc.1")).toThrow("uyuşmazlığı");
-  expect(() => tagDoğrula("v0.1.0-rc.2")).not.toThrow();
+  expect(() => tagDoğrula("v0.1.0-rc.2")).toThrow("uyuşmazlığı");
+  expect(() => tagDoğrula("v0.1.0-rc.3")).not.toThrow();
   expect(yayınUrl("ata-windows-x64.exe")).toBe(
-    "https://github.com/ibodev1/ata/releases/download/v0.1.0-rc.2/ata-windows-x64.exe",
+    "https://github.com/ibodev1/ata/releases/download/v0.1.0-rc.3/ata-windows-x64.exe",
   );
   expect(() => yayınUrl("../ata", "0.1.0-rc.1")).toThrow();
   expect(() => yayınUrl("kur.sh", "0.1.0-rc.1", "owner/repo/yanlış")).toThrow();

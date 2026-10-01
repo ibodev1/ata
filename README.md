@@ -1,6 +1,6 @@
 # Ata Dil
 
-Ata, Türkçenin doğal düşünce sırasını sözdizimine yansıtmayı amaçlayan deneysel bir hobi programlama dilidir. Statik tip denetimi, Unicode adlar, işlevler, listeler, yapılar ve seçenekler içerir. Mevcut sürüm **0.1.0-rc.2**, Aşama 11 Windows installer uyumluluk düzeltmesidir.
+Ata, Türkçenin doğal düşünce sırasını sözdizimine yansıtmayı amaçlayan deneysel bir hobi programlama dilidir. Statik tip denetimi, Unicode adlar, işlevler, listeler, yapılar ve seçenekler içerir. Mevcut kaynak sürümü **0.1.0-rc.3**, Aşama 12 son stabilizasyon adayıdır. Yeni dil özelliği eklenmedi; feature freeze devam ediyor.
 
 ```ata
 sabit ad = "Dünya"
@@ -25,7 +25,9 @@ bun run check:release
 
 ## Kurulum ve yayın hazırlığı
 
-**0.1.0-rc.2 yayın adayı yerelde hazırlanmıştır; bu sürüm için henüz tag veya GitHub Release oluşturulmamıştır.** RC.1 gerçek yayın testinde bulunan Windows installer mimari algılama hatası düzeltildi. Yayınlandıktan sonra indirilen `kur.ps1` Windows PowerShell 5.1 veya PowerShell 7+'ta, `kur.sh` Unix/macOS'ta çalıştırılır; henüz RC.2 için internetten doğrudan çalıştırma komutu verilmez.
+**Repository şimdilik PRIVATE; yayımlanmış private RC `v0.1.0-rc.2`, kaynak ağacındaki `0.1.0-rc.3` ise henüz tag/Release oluşturulmamış iç adaydır.** Repository public olmadan internet installer modu anonim erişimle kullanılamaz; private asset isteğinin 404 vermesi installer hatası değildir. Public geçiş sonrası mevcut RC ile anonim kurulum yeniden doğrulanacaktır. Installer'a token, PAT veya `gh` bağımlılığı eklenmez.
+
+İleride public release'ten indirilen `kur.ps1` Windows PowerShell 5.1 veya PowerShell 7+'ta, `kur.sh` Unix/macOS'ta çalıştırılacaktır. Henüz hazır bir public internet kurulum komutu sunulmuyor.
 
 Installer binary ve `SHA256SUMS.txt` indirir; SHA-256 eşleşmezse kurmaz. Binary’ler henüz kod imzalı değildir; checksum code signing’in yerine geçmez. SmartScreen, Gatekeeper, quarantine ve execution policy ayarları değiştirilmez.
 
@@ -93,7 +95,9 @@ Binary smoke binary'yi depo dışındaki geçici dizine kopyalar; PATH boşken k
 - [Proje bağlamı](CONTEXT.md): terimler ve mevcut mimari.
 - [Örnekler](örnekler/): çalıştırılabilir Ata programları.
 - [RC.2 yayın notu](docs/sürümler/0.1.0-rc.2.md); [RC.1 yayın notu](docs/sürümler/0.1.0-rc.1.md).
+- [RC.3 stabilizasyon notu](docs/sürümler/0.1.0-rc.3.md): yayımlanmamış iç aday ve karar bekleyen `hiç?` davranışı.
+- [0.1.0 yayın kontrol listesi](docs/0.1.0-yayın-kontrol-listesi.md): public geçiş ve final yayın öncesi insan doğrulaması.
 
 GitHub Actions `push` ve `pull_request` için Ubuntu üzerinde Bun 1.4.2, `bun ci`, `check`, build ve binary smoke çalıştırır. Ayrı Windows job'ı PowerShell 5.1 ve 7+ mimari/ağ installer regresyonlarını doğrular. Release veya yayınlama yapmaz. Windows'ta `check:release` gerçek binary installer smoke'u iki PowerShell sürümünde de çalıştırır.
 
-Ayrı `release.yml`, `workflow_dispatch` ile yalnızca Actions artifact üretir. `v*` tag push’unda tag/paket sürümünü doğrular; kalite, release hazırlığı ve Linux installer smoke sonrası tag job’ı `gh release create --verify-tag --prerelease --latest=false` kullanabilir. Varsayılan izin `contents: read`, yalnızca publish job’ı `contents: write` alır; built-in token kullanılır. Resmi action’lar doğrulanmış commit SHA’larına pinlidir. RC.2 hazırlığında push, tag veya gerçek Release yapılmadı.
+Ayrı `release.yml`, `workflow_dispatch` ile yalnızca Actions artifact üretir. `v*` tag push’unda tag/paket sürümünü doğrular; kalite, release hazırlığı ve Linux installer smoke sonrası publish job’ı mevcut remote tag için `gh release create --verify-tag` kullanabilir. RC/dev sürümlerinde `--prerelease --latest=false`, final sürümde `--latest` seçilir. Varsayılan izin `contents: read`, yalnızca publish job’ı `contents: write` alır; built-in token kullanılır. Resmi action’lar doğrulanmış commit SHA’larına pinlidir. RC.3 hazırlığında push, tag veya gerçek Release yapılmadı; yeni uzak workflow henüz gözlemlenmedi.

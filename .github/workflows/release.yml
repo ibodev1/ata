@@ -10,6 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.metadata.outputs.version }}
+      prerelease: ${{ steps.metadata.outputs.prerelease }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -20,7 +21,7 @@ jobs:
           bun-version: "1.4.2"
       - run: bun ci
       - id: metadata
-        run: bun -e 'import {version} from "./package.json"; console.log("version=" + version)' >> "$GITHUB_OUTPUT"
+        run: bun -e 'import {version} from "./package.json"; import {önSürümMü} from "./scripts/yayın.ts"; console.log("version=" + version); console.log("prerelease=" + önSürümMü())' >> "$GITHUB_OUTPUT"
       - name: Tag sürümünü doğrula
         if: github.event_name == 'push'
         env:
@@ -62,14 +63,17 @@ jobs:
         run: |
           bun run scripts/yayın.ts "$RELEASE_TAG"
           bun run release:verify
-      - name: Mevcut tag için prerelease oluştur
+      - name: Mevcut tag için sürüme uygun release oluştur
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           RELEASE_TAG: ${{ github.ref_name }}
           VERSION: ${{ needs.build.outputs.version }}
-        run: >-
-          gh release create "$RELEASE_TAG" dist/release/*
-          --verify-tag --prerelease --latest=false
-          --title "Ata Dil $VERSION"
-          --notes-file "docs/sürümler/$VERSION.md"
+          PRERELEASE: ${{ needs.build.outputs.prerelease }}
+        run: |
+          case "$PRERELEASE" in
+            true) flags=(--prerelease --latest=false) ;;
+            false) flags=(--latest) ;;
+            *) echo 'Geçersiz prerelease bilgisi.' >&2; exit 1 ;;
+          esac
+          gh release create "$RELEASE_TAG" dist/release/* --verify-tag "${flags[@]}" --title "Ata Dil $VERSION" --notes-file "docs/sürümler/$VERSION.md"

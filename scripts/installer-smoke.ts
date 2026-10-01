@@ -84,6 +84,14 @@ async function smoke(pwsh = "") {
     await Bun.write(sağlama, doğru);
     await Bun.write(yerel, "");
     çalıştır(kurulum, 1);
+    await copyFile(join(release, asset), yerel);
+    // Sahiplik kaydı mevcut olsa da kullanıcının değiştirdiği binary silinemez/değiştirilemez.
+    await Bun.write(ata, "Kullanıcı tarafından değiştirilmiş Ata");
+    çalıştır(kurulum, 1);
+    çalıştır(kaldır, 1);
+    assert.equal(await Bun.file(ata).text(), "Kullanıcı tarafından değiştirilmiş Ata");
+    // Yalnızca smoke'un kendi temporary dosyasını eski doğrulanmış içeriğe döndür.
+    await copyFile(join(release, asset), ata);
     çalıştır(kaldır);
     assert.equal(await Bun.file(ata).exists(), false);
     assert.equal(await Bun.file(join(yol, "başka-dosya.txt")).text(), "koru");
@@ -93,7 +101,7 @@ async function smoke(pwsh = "") {
     assert.equal(await Bun.file(ata).text(), "Ata olmayan dosya");
     if (windows) assert.equal(çalıştır(pathOku), öncekiUserPath);
     console.log(
-      `${windows ? `Windows (${pwsh})` : process.platform} installer smoke başarılı: install/upgrade/binary/uninstall; checksum hataları ve yabancı dosya korunumu; PATH değiştirilmedi.`,
+      `${windows ? `Windows (${pwsh})` : process.platform} installer smoke başarılı: install/upgrade/binary/uninstall; checksum hataları, değiştirilmiş/yabancı dosya korunumu; PATH değiştirilmedi.`,
     );
   } finally {
     // OS temp altında bu işlem için oluşturulan tek dizin.

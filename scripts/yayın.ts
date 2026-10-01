@@ -45,6 +45,11 @@ export function tagDoğrula(tag: string): void {
     throw new Error(`Tag/sürüm uyuşmazlığı: ${tag}; beklenen ${yayınTagi()}`);
 }
 
+export function önSürümMü(sürüm: string = version): boolean {
+  yayınTagi(sürüm);
+  return sürüm.includes("-");
+}
+
 export function assetSeç(platform: string, mimari: string): string {
   const hedef = hedefler.find((aday) => aday.platform === platform && aday.mimari === mimari);
   if (!hedef) throw new Error("Bu platform henüz desteklenmiyor.");

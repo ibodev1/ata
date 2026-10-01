@@ -5,7 +5,7 @@ import { join, resolve } from "node:path";
 import { version } from "../package.json";
 import { derlemeHedefi, projeKökü } from "./derle.ts";
 
-function çalıştır(komut: string[], cwd: string, binary: boolean, girdi = "") {
+function çalıştır(komut: string[], cwd: string, binary: boolean, girdi: string | Uint8Array = "") {
   const sonuç = Bun.spawnSync(komut, {
     cwd,
     stdin: Buffer.from(girdi),
@@ -30,11 +30,17 @@ async function smoke() {
     );
     await chmod(binary, 0o755);
     await mkdir(join(geçici, "geçici testler"));
-    const özel = join("geçici testler", "öğrenci 🌍 programı.ata");
+    const özel = join("geçici testler", "öğrenci & ; ' 🌍 programı.ata");
     await Bun.write(join(geçici, özel), '"Türkçe: İı Şş Ğğ 🌍" yazdır');
     const cli = resolve(projeKökü, "src/cli/cli.ts");
     let sayı = 0;
-    function karşılaştır(args: string[], kod: number, beklenen?: string, girdi = "") {
+    function karşılaştır(
+      args: string[],
+      kod: number,
+      beklenen?: string,
+      girdi: string | Uint8Array = "",
+      hataÖncesiÇıktı = "",
+    ) {
       const kaynak = çalıştır([process.execPath, "run", cli, ...args], geçici, false, girdi);
       const derlenmiş = çalıştır([binary, ...args], geçici, true, girdi);
       assert.deepEqual(derlenmiş, kaynak, args.join(" "));
@@ -43,7 +49,7 @@ async function smoke() {
         assert.equal(derlenmiş.hata, "");
         if (beklenen !== undefined) assert.equal(derlenmiş.çıktı, beklenen);
       } else {
-        assert.equal(derlenmiş.çıktı, "");
+        assert.equal(derlenmiş.çıktı, hataÖncesiÇıktı);
         assert.ok(derlenmiş.hata.length > 0);
         assert.doesNotMatch(derlenmiş.hata, /Error:|\bat .+\(.*:\d+:\d+\)/);
         if (beklenen !== undefined) assert.ok(derlenmiş.hata.includes(beklenen));
@@ -68,6 +74,15 @@ async function smoke() {
     karşılaştır(["çalıştır", "program.txt"], 1, ".ata");
     karşılaştır(["bilinmeyen"], 1);
     karşılaştır(["çalıştır"], 1);
+    karşılaştır([], 0);
+    karşılaştır(["sürüm", "fazla"], 1);
+    await mkdir(join(geçici, "dizin.ata"));
+    await Bun.write(join(geçici, "boş.ata"), "");
+    await Bun.write(join(geçici, "bozuk-utf8.ata"), new Uint8Array([0xc3, 0x28]));
+    karşılaştır(["çalıştır", "dizin.ata"], 1, "UTF-8");
+    karşılaştır(["çalıştır", "bozuk-utf8.ata"], 1, "UTF-8");
+    karşılaştır(["denetle", "boş.ata"], 0, "Denetim başarılı.\n");
+    karşılaştır(["çalıştır", "boş.ata"], 0, "");
     const hatalar = [
       ["ATA1001", "@"],
       ["ATA2001", "sabit ="],
@@ -83,6 +98,18 @@ async function smoke() {
       'sabit ad = girdi("Adınız: ")\n"Merhaba {ad}!" yazdır',
     );
     karşılaştır(["çalıştır", "girdi.ata"], 0, "Adınız: Merhaba İbrahim!\n", "İbrahim\r\n");
+    karşılaştır(["çalıştır", "girdi.ata"], 0, "Adınız: Merhaba 🌍!\n", "🌍\n");
+    karşılaştır(["çalıştır", "girdi.ata"], 0, "Adınız: Merhaba !\n", "\n");
+    karşılaştır(["çalıştır", "girdi.ata"], 1, "ATA5007", "", "Adınız: ");
+    karşılaştır(
+      ["çalıştır", "girdi.ata"],
+      1,
+      "ATA5007",
+      new Uint8Array([0xc3, 0x28, 0x0a]),
+      "Adınız: ",
+    );
+    await Bun.write(join(geçici, "ardışık.ata"), 'girdi("") yazdır\ngirdi("") yazdır');
+    karşılaştır(["çalıştır", "ardışık.ata"], 0, "İbrahim\n🌍\n", "İbrahim\r\n🌍");
     console.log(
       `Binary smoke başarılı: ${sayı} kaynak/binary karşılaştırması; depo dışında, PATH boş.`,
     );

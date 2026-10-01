@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { chmod, mkdtemp, rm } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -13,6 +13,64 @@ const sh = windows
     )
   : "sh";
 const abc = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad";
+
+test("sh installer boşluklu HOME, chmod, temp cleanup ve değiştirilmiş dosya korunumunu sağlar", async () => {
+  const geçici = await mkdtemp(join(tmpdir(), "ata-sh-home-"));
+  try {
+    const ev = join(geçici, "ev şğ & ; ' dizini");
+    const temp = join(geçici, "temp");
+    await Promise.all([mkdir(ev), mkdir(temp)]);
+    await Bun.write(join(ev, ".profile"), "değiştirme");
+    await Bun.write(
+      join(geçici, "uname"),
+      '#!/bin/sh\ncase "$1" in -s) echo Linux;; -m) echo x86_64;; esac\n',
+    );
+    await chmod(join(geçici, "uname"), 0o755);
+    await Bun.write(
+      join(geçici, "chmod"),
+      '#!/bin/sh\nprintf "%s\\n" "$1" >> "$ATA_CHMOD_LOG"\nexec /usr/bin/chmod "$@"\n',
+    );
+    await chmod(join(geçici, "chmod"), 0o755);
+    const yerel = join(geçici, "ata-linux-x64");
+    const manifest = join(geçici, "SHA256SUMS.txt");
+    await Bun.write(yerel, "abc");
+    await Bun.write(manifest, `${abc}  ata-linux-x64\n`);
+    const chmodKaydı = join(geçici, "chmod.log");
+    const env = {
+      ...process.env,
+      HOME: unixYolu(ev),
+      TMPDIR: unixYolu(temp),
+      ATA_CHMOD_LOG: unixYolu(chmodKaydı),
+      PATH: `${unixYolu(geçici)}:/usr/bin:/bin`,
+    };
+    const kur = [sh, unixYolu(join(kök, "scripts/kur.sh")), "--local-file", unixYolu(yerel)];
+    const kaldır = [sh, unixYolu(join(kök, "scripts/kaldir.sh"))];
+    const ata = join(ev, ".local/bin/ata");
+    const sonuç = Bun.spawnSync(kur, { env });
+    expect(sonuç.exitCode, sonuç.stderr.toString()).toBe(0);
+    expect(sonuç.stdout.toString()).toContain("PATH");
+    expect((await Bun.file(chmodKaydı).text()).trim()).toBe("755");
+    // NTFS/MSYS test -x, POSIX mode bitlerini temsil etmez.
+    if (!windows)
+      expect(Bun.spawnSync([sh, "-c", 'test -x "$HOME/.local/bin/ata"'], { env }).exitCode).toBe(0);
+    expect(await readdir(temp)).toEqual([]);
+    expect(await Bun.file(join(ev, ".profile")).text()).toBe("değiştirme");
+    await Bun.write(ata, "kullanıcı değişikliği");
+    expect(Bun.spawnSync(kur, { env }).exitCode).toBe(1);
+    expect(Bun.spawnSync(kaldır, { env }).exitCode).toBe(1);
+    expect(await Bun.file(ata).text()).toBe("kullanıcı değişikliği");
+    expect(await readdir(temp)).toEqual([]);
+    await Bun.write(ata, "abc");
+    expect(Bun.spawnSync(kaldır, { env }).exitCode).toBe(0);
+    expect(await Bun.file(ata).exists()).toBe(false);
+    await Bun.write(manifest, "bozuk\n");
+    expect(Bun.spawnSync(kur, { env }).exitCode).toBe(1);
+    expect(await readdir(temp)).toEqual([]);
+    expect(await Bun.file(ata).exists()).toBe(false);
+  } finally {
+    await rm(geçici, { recursive: true, force: true });
+  }
+});
 
 function unixYolu(yol: string) {
   return windows
@@ -75,10 +133,10 @@ test.each(ağSenaryoları)(
       expect(await Bun.file(join(dizin, windows ? "ata.exe" : "ata")).exists()).toBe(false);
       const asset = windows ? "ata-windows-x64.exe" : "ata-linux-x64";
       const urls = (await Bun.file(kayıt).text()).trim().split(/\r?\n/);
-      expect(urls).toEqual([
-        `https://github.com/ibodev1/ata/releases/download/v0.1.0-rc.2/${asset}`,
+      expect(urls, sonuç.stderr.toString()).toEqual([
+        `https://github.com/ibodev1/ata/releases/download/v0.1.0-rc.3/${asset}`,
         ...(!ilk
-          ? ["https://github.com/ibodev1/ata/releases/download/v0.1.0-rc.2/SHA256SUMS.txt"]
+          ? ["https://github.com/ibodev1/ata/releases/download/v0.1.0-rc.3/SHA256SUMS.txt"]
           : []),
       ]);
     } finally {
