@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { version } from "../package.json";
 import {
   assetSeç,
   yayınTagi,
@@ -19,6 +20,7 @@ test("SHA-256 standart sabit vektörle üretilir ve doğrulanır", () => {
 test("RC/dev ön sürümdür, final sürüm prerelease değildir", () => {
   expect(önSürümMü("0.1.0-rc.3")).toBe(true);
   expect(önSürümMü("0.1.0-dev.10")).toBe(true);
+  expect(önSürümMü("0.2.0-dev.1")).toBe(true);
   expect(önSürümMü("0.1.0")).toBe(false);
   expect(() => önSürümMü("yanlış")).toThrow("Geçersiz sürüm");
 });
@@ -55,21 +57,24 @@ test("desteklenmeyen mimaride başka platforma düşmez", () => {
     expect(() => assetSeç(platform, "arm64")).toThrow("desteklenmiyor");
 });
 
-test("RC URL ve final tag eşleşmesi güvenli biçimde doğrulanır", () => {
+test("RC/final URL ve kaynak sürüm tag eşleşmesi güvenli biçimde doğrulanır", () => {
   expect(yayınTagi("0.1.0-rc.1")).toBe("v0.1.0-rc.1");
   expect(yayınUrl("ata-windows-x64.exe", "0.1.0-rc.1")).toBe(
     "https://github.com/ibodev1/ata/releases/download/v0.1.0-rc.1/ata-windows-x64.exe",
   );
-  expect(yayınTagi()).toBe("v0.1.0");
-  expect(önSürümMü()).toBe(false);
-  expect(() => tagDoğrula("v0.1.0")).not.toThrow();
+  expect(yayınTagi("0.1.0")).toBe("v0.1.0");
+  expect(önSürümMü("0.1.0")).toBe(false);
+  expect(yayınTagi()).toBe(`v${version}`);
+  expect(önSürümMü()).toBe(version.includes("-"));
+  expect(() => tagDoğrula(`v${version}`)).not.toThrow();
+  expect(() => tagDoğrula("v0.1.0")).toThrow("uyuşmazlığı");
   expect(() => tagDoğrula("v0.1.0-rc.1")).toThrow("uyuşmazlığı");
   expect(() => tagDoğrula("v0.1.0-rc.2")).toThrow("uyuşmazlığı");
   expect(() => tagDoğrula("v0.1.0-rc.3")).toThrow("uyuşmazlığı");
   expect(() => tagDoğrula("v0.1.1")).toThrow("uyuşmazlığı");
   expect(() => tagDoğrula("v1.0.0")).toThrow("uyuşmazlığı");
   expect(yayınUrl("ata-windows-x64.exe")).toBe(
-    "https://github.com/ibodev1/ata/releases/download/v0.1.0/ata-windows-x64.exe",
+    `https://github.com/ibodev1/ata/releases/download/v${version}/ata-windows-x64.exe`,
   );
   expect(() => yayınUrl("../ata", "0.1.0-rc.1")).toThrow();
   expect(() => yayınUrl("kur.sh", "0.1.0-rc.1", "owner/repo/yanlış")).toThrow();

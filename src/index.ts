@@ -10,6 +10,8 @@ export { ayrıştır } from "./ayrıştırıcı/ayrıştırıcı.ts";
 export type { AyrıştırmaSonucu } from "./ayrıştırıcı/ayrıştırıcı.ts";
 export type {
   Program,
+  KullanBildirimi,
+  KullanAdı,
   Bildirim,
   DeğerBildirimi,
   Blok,

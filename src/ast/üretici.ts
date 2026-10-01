@@ -10,6 +10,8 @@ import type {
   DeğerBildirimi,
   İfade,
   Program,
+  KullanBildirimi,
+  KullanAdı,
   Tipİfadesi,
   İkiliİşleç,
   Atamaİşleci,
@@ -57,10 +59,67 @@ export class AstÜreticisi {
   }
 
   üret(düğüm: CstNode): Program {
+    const kullanBildirimleri: KullanBildirimi[] = [];
+    const bildirimler: Bildirim[] = [];
+    for (const altDüğüm of altlar(düğüm, "üstBildirim")) {
+      const kullan = this.kullanDüğümü(altDüğüm);
+      if (kullan) {
+        if (bildirimler.length > 0) this.kullanKonumHatası(kullan);
+        kullanBildirimleri.push(this.kullanBildirimi(kullan));
+      } else bildirimler.push(this.bildirim(altDüğüm));
+    }
     return {
       tür: "program",
       aralık: aralıkBul(this.kaynak, 0, this.kaynak.içerik.length),
-      bildirimler: altlar(düğüm, "üstBildirim").map((altDüğüm) => this.bildirim(altDüğüm)),
+      kullanBildirimleri,
+      bildirimler,
+    };
+  }
+
+  private kullanDüğümü(düğüm: CstNode): CstNode | null {
+    if (düğüm.children.bildirim) return this.kullanDüğümü(alt(düğüm, "bildirim"));
+    return düğüm.children.kullanBildirimi ? alt(düğüm, "kullanBildirimi") : null;
+  }
+
+  private kullanKonumHatası(düğüm: CstNode): void {
+    this.tanılar.push({
+      kod: "ATA6006",
+      seviye: "hata",
+      mesaj: "'kullan' bildirimi yalnızca dosyanın başında kullanılabilir.",
+      yol: this.kaynak.yol,
+      aralık: this.aralık(düğüm),
+    });
+  }
+
+  private kullanBildirimi(düğüm: CstNode): KullanBildirimi {
+    const yol = token(düğüm, "yol");
+    let biçim: KullanBildirimi["biçim"];
+    if (düğüm.children.seçilenAd) {
+      const adlar = düğüm.children.seçilenAd.map((_, sıra) =>
+        this.kullanAdı(token(düğüm, "seçilenAd", sıra)),
+      );
+      const ilk = adlar.shift();
+      if (!ilk) throw new Error("Seçici kullanımda ad eksik.");
+      biçim = { tür: "seçici", adlar: [ilk, ...adlar] };
+    } else {
+      biçim = {
+        tür: "namespace",
+        takmaAd: düğüm.children.takmaAd ? this.kullanAdı(token(düğüm, "takmaAd")) : null,
+      };
+    }
+    return {
+      tür: "kullan",
+      yol: kaçışlarıÇöz(yol.image.slice(1, -1)),
+      yolAralığı: aralıkBul(this.kaynak, yol.startOffset, yol.startOffset + yol.image.length),
+      aralık: this.aralık(düğüm),
+      biçim,
+    };
+  }
+
+  private kullanAdı(ad: IToken): KullanAdı {
+    return {
+      ad: ad.image,
+      aralık: aralıkBul(this.kaynak, ad.startOffset, ad.startOffset + ad.image.length),
     };
   }
 
@@ -157,9 +216,15 @@ export class AstÜreticisi {
   }
 
   private blok(düğüm: CstNode): Blok {
+    const bildirimler: Bildirim[] = [];
+    for (const bildirim of altlar(düğüm, "bildirim")) {
+      const kullan = this.kullanDüğümü(bildirim);
+      if (kullan) this.kullanKonumHatası(kullan);
+      else bildirimler.push(this.bildirim(bildirim));
+    }
     return {
       tür: "blok",
-      bildirimler: altlar(düğüm, "bildirim").map((bildirim) => this.bildirim(bildirim)),
+      bildirimler,
       aralık: this.aralık(düğüm),
     };
   }

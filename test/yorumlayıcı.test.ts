@@ -225,6 +225,7 @@ test("yorumlayıcı AST birim sınırında çalışır; her çalıştırma bağ�
   };
   const program: Program = {
     tür: "program",
+    kullanBildirimleri: [],
     aralık,
     bildirimler: [
       {

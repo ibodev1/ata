@@ -52,6 +52,10 @@ async function cli(argümanlar: readonly string[]): Promise<number> {
   const sonuç = ayrıştır(kaynak);
   for (const tanı of sonuç.tanılar) console.error(tanıyıGöster(kaynak, tanı));
   if (sonuç.tanılar.some((tanı) => tanı.seviye === "hata")) return 1;
+  if (sonuç.program!.kullanBildirimleri.length > 0) {
+    console.error("Modül kullanımı bu geliştirme sürümünde henüz desteklenmiyor.");
+    return 1;
+  }
   const analiz = analizEt(sonuç.program!, kaynak.yol);
   for (const tanı of analiz.tanılar) console.error(tanıyıGöster(kaynak, tanı));
   if (analiz.tanılar.some((tanı) => tanı.seviye === "hata")) return 1;

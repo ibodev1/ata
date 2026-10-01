@@ -64,12 +64,44 @@ class AtaAyrıştırıcısı extends CstParser {
   );
   readonly bildirim = this.RULE("bildirim", () => {
     this.OR([
+      {
+        GATE: () =>
+          tokenMatcher(this.LA(1), tokenTürü("Yazı")) &&
+          (tokenMatcher(this.LA(2), tokenTürü("kullan")) ||
+            tokenMatcher(this.LA(2), tokenTürü("içinden")) ||
+            tokenMatcher(this.LA(2), tokenTürü("Tanımlayıcı"))),
+        ALT: () => this.SUBRULE(this.kullanBildirimi),
+      },
       { ALT: () => this.SUBRULE(this.değerBildirimi) },
       { ALT: () => this.SUBRULE(this.koşul) },
       { ALT: () => this.SUBRULE(this.blok) },
       { ALT: () => this.CONSUME(tokenTürü("döndür")) },
       { ALT: () => this.SUBRULE(this.ifadeBildirimi) },
     ]);
+  });
+  readonly kullanBildirimi = this.RULE("kullanBildirimi", () => {
+    this.CONSUME(tokenTürü("Yazı"), { LABEL: "yol" });
+    this.OPTION(() =>
+      this.OR([
+        {
+          ALT: () => {
+            this.CONSUME(tokenTürü("Tanımlayıcı"), { LABEL: "takmaAd" });
+            this.CONSUME(tokenTürü("olarak"));
+          },
+        },
+        {
+          ALT: () => {
+            this.CONSUME(tokenTürü("içinden"));
+            this.CONSUME(Ad, { LABEL: "seçilenAd" });
+            this.MANY(() => {
+              this.CONSUME(tokenTürü("Virgül"));
+              this.CONSUME2(Ad, { LABEL: "seçilenAd" });
+            });
+          },
+        },
+      ]),
+    );
+    this.CONSUME(tokenTürü("kullan"));
   });
   readonly ifadeBildirimi = this.RULE("ifadeBildirimi", () => {
     this.SUBRULE(this.ifade);

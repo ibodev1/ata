@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { version } from "../package.json";
 
 const cliYolu = Bun.file(new URL("../src/cli/cli.ts", import.meta.url)).name!;
 const örnekYolu = Bun.file(new URL("../örnekler/merhaba.ata", import.meta.url)).name!;
@@ -14,7 +15,7 @@ function komutÇalıştır(...argümanlar: string[]) {
 }
 
 test("CLI sürümü gösterir", () => {
-  expect(komutÇalıştır("sürüm")).toEqual({ kod: 0, çıktı: "Ata Dil 0.1.0\n", hata: "" });
+  expect(komutÇalıştır("sürüm")).toEqual({ kod: 0, çıktı: `Ata Dil ${version}\n`, hata: "" });
 });
 
 test("CLI eşleştirme örneğini denetler ve çalıştırır", () => {

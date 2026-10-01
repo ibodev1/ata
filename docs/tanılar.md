@@ -1,6 +1,6 @@
 # Tanı kodları
 
-Tanılar kaynak yolu, konum, kod ve Türkçe açıklama taşır. `ATA1xxx` sözcük çözümleme, `ATA2xxx` ayrıştırma, `ATA3xxx` isim/tip adı çözümleme, `ATA4xxx` tip/anlamsal denetim, `ATA5xxx` çalışma zamanı ailesidir. **ATA6xxx şu anda kullanılmıyor**: CLI kullanım, dosya uzantısı ve dosya/UTF-8 okuma hataları kod taşımayan Türkçe mesajlardır. Başarı çıkışı 0, Ata/CLI hatası 1'dir.
+Tanılar kaynak yolu, konum, kod ve Türkçe açıklama taşır. `ATA1xxx` sözcük çözümleme, `ATA2xxx` ayrıştırma, `ATA3xxx` isim/tip adı çözümleme, `ATA4xxx` tip/anlamsal denetim, `ATA5xxx` çalışma zamanı ailesidir. `ATA6xxx` modül kullanımı ailesidir; bu geliştirme sürümünde yalnızca `kullan` bildiriminin konumu doğrulanır. Modül yükleme ve yürütme henüz desteklenmez. CLI kullanım, dosya uzantısı ve dosya/UTF-8 okuma hataları kod taşımayan Türkçe mesajlardır. Başarı çıkışı 0, Ata/CLI hatası 1'dir.
 
 Tablo kaynakta kullanılan bütün kodları kapsar. Bir kod aynı denetim kuralının farklı bağlamlarında kullanılabilir. Çalışma zamanı ortam/durum tanıları savunma denetimlerini de kapsar; normal statik denetimden geçmiş kaynakta her birinin oluşması beklenmez.
 
@@ -60,5 +60,6 @@ Tablo kaynakta kullanılan bütün kodları kapsar. Bir kod aynı denetim kural�
 | ATA5007 | Girdi okunamadı                                        | Çalışma    |
 | ATA5008 | Güvenli tam sayı olmayan doğrudan indeks               | Çalışma    |
 | ATA5009 | Sınır dışı doğrudan indeks                             | Çalışma    |
+| ATA6006 | Geçersiz konumda kullan bildirimi                      | Ön yüz     |
 
 `denetle` yorumlayıcıyı çalıştırmaz. Örneğin `1 / 0 yazdır` denetimden geçer; `çalıştır` ATA5001 üretir. Çalışma zamanı hatası öncesindeki program çıktıları korunur.

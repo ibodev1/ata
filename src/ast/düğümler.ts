@@ -6,7 +6,21 @@ interface Düğüm {
 
 export interface Program extends Düğüm {
   readonly tür: "program";
+  readonly kullanBildirimleri: readonly KullanBildirimi[];
   readonly bildirimler: readonly Bildirim[];
+}
+
+export interface KullanAdı extends Düğüm {
+  readonly ad: string;
+}
+
+export interface KullanBildirimi extends Düğüm {
+  readonly tür: "kullan";
+  readonly yol: string;
+  readonly yolAralığı: KaynakAralığı;
+  readonly biçim:
+    | { readonly tür: "namespace"; readonly takmaAd: KullanAdı | null }
+    | { readonly tür: "seçici"; readonly adlar: readonly [KullanAdı, ...KullanAdı[]] };
 }
 
 export interface DeğerBildirimi extends Düğüm {
