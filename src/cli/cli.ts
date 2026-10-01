@@ -1,6 +1,6 @@
-import { kaynakOku } from "../kaynak/kaynak.ts";
-import type { Kaynak } from "../kaynak/kaynak.ts";
-import { ayrıştır } from "../ayrıştırıcı/ayrıştırıcı.ts";
+import { modülleriYükle } from "../modüller/yükleyici.ts";
+import { modülGörünenYolu } from "../modüller/yol.ts";
+import type { Tanı } from "../tanılama/tanı.ts";
 import { analizEt } from "../analiz/analiz.ts";
 import { yorumla } from "../çalışma/yorumlayıcı.ts";
 import { tanıyıGöster } from "../tanılama/göster.ts";
@@ -40,35 +40,47 @@ async function cli(argümanlar: readonly string[]): Promise<number> {
     console.error("Kaynak dosyasının uzantısı '.ata' olmalıdır.");
     return 1;
   }
-  let kaynak: Kaynak;
-  try {
-    kaynak = await kaynakOku(yol);
-  } catch {
+  const yükleme = await modülleriYükle(yol);
+  if (yükleme.girişOkunamadı) {
     console.error(
       `Dosya UTF-8 olarak okunamadı: '${yol}'. Dosyanın varlığını, okuma iznini ve UTF-8 kodlamasını kontrol edin.`,
     );
     return 1;
   }
-  const sonuç = ayrıştır(kaynak);
-  for (const tanı of sonuç.tanılar) console.error(tanıyıGöster(kaynak, tanı));
-  if (sonuç.tanılar.some((tanı) => tanı.seviye === "hata")) return 1;
-  if (sonuç.program!.kullanBildirimleri.length > 0) {
-    console.error("Modül kullanımı bu geliştirme sürümünde henüz desteklenmiyor.");
-    return 1;
+  const girişKaynağı = yükleme.kaynaklar.values().next().value;
+  if (!girişKaynağı) throw new Error("Giriş kaynağı bekleniyordu.");
+  const kanonikGiriş = girişKaynağı.yol;
+  function tanılarıYaz(tanılar: readonly Tanı[]): void {
+    for (const tanı of tanılar) {
+      const kaynak = yükleme.kaynaklar.get(tanı.yol);
+      if (!kaynak) throw new Error("Tanının kaynağı bulunamadı.");
+      console.error(tanıyıGöster(kaynak, tanı, modülGörünenYolu(kanonikGiriş, tanı.yol)));
+    }
   }
-  const analiz = analizEt(sonuç.program!, kaynak.yol);
-  for (const tanı of analiz.tanılar) console.error(tanıyıGöster(kaynak, tanı));
-  if (analiz.tanılar.some((tanı) => tanı.seviye === "hata")) return 1;
+  tanılarıYaz(yükleme.tanılar);
+  const grafik = yükleme.grafik;
+  if (!grafik) return 1;
+  let statikHata = false;
+  for (const modül of grafik.sıra) {
+    const analiz = analizEt(modül.program, modül.kanonikYol);
+    tanılarıYaz(analiz.tanılar);
+    if (analiz.tanılar.some((tanı) => tanı.seviye === "hata")) statikHata = true;
+  }
+  if (statikHata) return 1;
   if (komut === "denetle") {
     console.log("Denetim başarılı.");
     return 0;
   }
-  const çalışma = yorumla(sonuç.program!, {
-    yol: kaynak.yol,
+  if (grafik.giriş.program.kullanBildirimleri.length > 0) {
+    console.error("Modül çalışma zamanı bu geliştirme sürümünde henüz desteklenmiyor.");
+    return 1;
+  }
+  const çalışma = yorumla(grafik.giriş.program, {
+    yol: grafik.giriş.kanonikYol,
     çıktıYaz: (metin) => console.log(metin),
     girdiOku,
   });
-  for (const tanı of çalışma.tanılar) console.error(tanıyıGöster(kaynak, tanı));
+  tanılarıYaz(çalışma.tanılar);
   return çalışma.tanılar.some((tanı) => tanı.seviye === "hata") ? 1 : 0;
 }
 

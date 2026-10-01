@@ -3,6 +3,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { ENTEGRASYON_ZAMAN_ASIMI_MS } from "./entegrasyon.ts";
 import { analizEt, ayrıştır, kaynakOluştur, sözcüklereAyır, yorumla } from "../src/index.ts";
 
 test("kullan keyword'leri ayrılmıştır; identifier önekleri ve içindeki korunur", () => {
@@ -198,24 +199,31 @@ Durum::Aktif eşleştir {
   expect(çıktı).toEqual(["Merhaba", "doğru", "1", "2", "Aktif"]);
 });
 
-test("CLI geçerli kullan içeren dosyayı denetlemez veya sessizce çalıştırmaz", async () => {
-  const geçici = await mkdtemp(join(tmpdir(), "ata-kullan-"));
-  try {
-    const dosya = join(geçici, "ana.ata");
-    await Bun.write(dosya, '"olmayan" kullan\n"çalışmamalı" yazdır');
-    const cli = fileURLToPath(new URL("../src/cli/cli.ts", import.meta.url));
-    for (const komut of ["denetle", "çalıştır"]) {
-      const sonuç = Bun.spawnSync([process.execPath, "run", cli, komut, dosya], { cwd: geçici });
-      expect(sonuç.exitCode).toBe(1);
-      expect(sonuç.stdout.toString()).toBe("");
-      expect(sonuç.stderr.toString()).toBe(
-        "Modül kullanımı bu geliştirme sürümünde henüz desteklenmiyor.\n",
-      );
+test(
+  "CLI geçerli kullan graph'ını denetler; modül gövdelerini sessizce çalıştırmaz",
+  async () => {
+    const geçici = await mkdtemp(join(tmpdir(), "ata-kullan-"));
+    try {
+      const dosya = join(geçici, "ana.ata");
+      await Bun.write(dosya, '"yardımcı" kullan\n"çalışmamalı" yazdır');
+      await Bun.write(join(geçici, "yardımcı.ata"), 'girdi("DEPENDENCY ÇALIŞTI") yazdır');
+      const cli = fileURLToPath(new URL("../src/cli/cli.ts", import.meta.url));
+      for (const komut of ["denetle", "çalıştır"]) {
+        const sonuç = Bun.spawnSync([process.execPath, "run", cli, komut, dosya], { cwd: geçici });
+        expect(sonuç.exitCode).toBe(komut === "denetle" ? 0 : 1);
+        expect(sonuç.stdout.toString()).toBe(komut === "denetle" ? "Denetim başarılı.\n" : "");
+        expect(sonuç.stderr.toString()).toBe(
+          komut === "denetle"
+            ? ""
+            : "Modül çalışma zamanı bu geliştirme sürümünde henüz desteklenmiyor.\n",
+        );
+      }
+    } finally {
+      await rm(geçici, { recursive: true, force: true });
     }
-  } finally {
-    await rm(geçici, { recursive: true, force: true });
-  }
-});
+  },
+  ENTEGRASYON_ZAMAN_ASIMI_MS,
+);
 
 test("namespace kullan bildirimi statik yoluyla normal gövdeden ayrılır", () => {
   const sonuç = ayrıştır(kaynakOluştur("kullan.ata", '"matematik" kullan\nsabit x = 1'));

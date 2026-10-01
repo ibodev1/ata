@@ -1,6 +1,6 @@
 # Tanı kodları
 
-Tanılar kaynak yolu, konum, kod ve Türkçe açıklama taşır. `ATA1xxx` sözcük çözümleme, `ATA2xxx` ayrıştırma, `ATA3xxx` isim/tip adı çözümleme, `ATA4xxx` tip/anlamsal denetim, `ATA5xxx` çalışma zamanı ailesidir. `ATA6xxx` modül kullanımı ailesidir; bu geliştirme sürümünde yalnızca `kullan` bildiriminin konumu doğrulanır. Modül yükleme ve yürütme henüz desteklenmez. CLI kullanım, dosya uzantısı ve dosya/UTF-8 okuma hataları kod taşımayan Türkçe mesajlardır. Başarı çıkışı 0, Ata/CLI hatası 1'dir.
+Tanılar kaynak yolu, konum, kod ve Türkçe açıklama taşır. `ATA1xxx` sözcük çözümleme, `ATA2xxx` ayrıştırma, `ATA3xxx` isim/tip adı çözümleme, `ATA4xxx` tip/anlamsal denetim, `ATA5xxx` çalışma zamanı ailesidir. `ATA6xxx` modül kullanımı ailesidir; `kullan` bildiriminin konumu, yerel modül yolları, yükleme ve bağımlılık döngüleri doğrulanır. `denetle` erişilebilir bütün modülleri ayrı ayrı statik analizden geçirir. Namespace/seçici isim bağlama, modüller arası tip çözümleme ve modül yürütme henüz desteklenmez. CLI kullanım, dosya uzantısı ve giriş dosyasının/UTF-8'in okuma hataları kod taşımayan Türkçe mesajlardır. Başarı çıkışı 0, Ata/CLI hatası 1'dir.
 
 Tablo kaynakta kullanılan bütün kodları kapsar. Bir kod aynı denetim kuralının farklı bağlamlarında kullanılabilir. Çalışma zamanı ortam/durum tanıları savunma denetimlerini de kapsar; normal statik denetimden geçmiş kaynakta her birinin oluşması beklenmez.
 
@@ -60,6 +60,10 @@ Tablo kaynakta kullanılan bütün kodları kapsar. Bir kod aynı denetim kural�
 | ATA5007 | Girdi okunamadı                                        | Çalışma    |
 | ATA5008 | Güvenli tam sayı olmayan doğrudan indeks               | Çalışma    |
 | ATA5009 | Sınır dışı doğrudan indeks                             | Çalışma    |
+| ATA6001 | Modül dosyası bulunamadı                               | Modül      |
+| ATA6002 | Geçersiz modül yolu / normal dosya olmayan hedef       | Modül      |
+| ATA6003 | Döngüsel modül bağımlılığı (kendini kullanma dahil)    | Modül      |
 | ATA6006 | Geçersiz konumda kullan bildirimi                      | Ön yüz     |
+| ATA6008 | Modül okuma / UTF-8 / kanonikleştirme hatası           | Modül      |
 
 `denetle` yorumlayıcıyı çalıştırmaz. Örneğin `1 / 0 yazdır` denetimden geçer; `çalıştır` ATA5001 üretir. Çalışma zamanı hatası öncesindeki program çıktıları korunur.

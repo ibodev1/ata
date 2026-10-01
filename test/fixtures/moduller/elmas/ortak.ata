@@ -1,0 +1,3 @@
+işlev topla(a: sayı, b: sayı): sayı {
+    a + b döndür
+}

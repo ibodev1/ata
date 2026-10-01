@@ -112,6 +112,30 @@ async function smoke() {
     );
     await Bun.write(join(geçici, "ardışık.ata"), 'girdi("") yazdır\ngirdi("") yazdır');
     karşılaştır(["çalıştır", "ardışık.ata"], 0, "İbrahim\n🌍\n", "İbrahim\r\n🌍");
+    const modülGirişi = join("geçici testler", "modüller/ana.ata");
+    const yardımcı = join(geçici, "geçici testler/modüller/yardımcı dosyalar/ölçüler.ata");
+    await Bun.write(
+      join(geçici, modülGirişi),
+      '"yardımcı dosyalar/ölçüler" mat olarak kullan\n"ana" yazdır',
+    );
+    await Bun.write(yardımcı, "uzunluk([1, 2]) yazdır");
+    for (const giriş of [modülGirişi, resolve(geçici, modülGirişi)]) {
+      karşılaştır(["denetle", giriş], 0, "Denetim başarılı.\n");
+      karşılaştır(
+        ["çalıştır", giriş],
+        1,
+        "Modül çalışma zamanı bu geliştirme sürümünde henüz desteklenmiyor.",
+      );
+    }
+    await Bun.write(yardımcı, '// bir\n// iki\n// üç\nsabit x: sayı = "yanlış"');
+    karşılaştır(["denetle", modülGirişi], 1, "ölçüler.ata:4:17");
+    karşılaştır(["çalıştır", modülGirişi], 1, "ATA4001");
+    await Bun.write(yardımcı, "// bir\nsabit = 1");
+    karşılaştır(["denetle", modülGirişi], 1, "ölçüler.ata:2:7");
+    await Bun.write(yardımcı, '"../../modüller/ana" kullan');
+    karşılaştır(["denetle", modülGirişi], 1, "ATA6003");
+    await Bun.write(join(geçici, modülGirişi), '"olmayan" kullan');
+    karşılaştır(["denetle", modülGirişi], 1, "ATA6001");
     console.log(
       `Binary smoke başarılı: ${sayı} kaynak/binary karşılaştırması; depo dışında, PATH boş.`,
     );

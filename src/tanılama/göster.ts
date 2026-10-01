@@ -3,7 +3,7 @@ import type { Tanı } from "./tanı.ts";
 
 const sekmeleriAç = (yazı: string) => yazı.replaceAll("\t", "    ");
 
-export function tanıyıGöster(kaynak: Kaynak, tanı: Tanı): string {
+export function tanıyıGöster(kaynak: Kaynak, tanı: Tanı, görünenYol = tanı.yol): string {
   const { satır, sütun } = tanı.aralık.başlangıç;
   const metin = kaynak.içerik.normalize("NFC").split(/\r\n|\r|\n/)[satır - 1] ?? "";
   const önek = `${satır} │ `;
@@ -14,5 +14,5 @@ export function tanıyıGöster(kaynak: Kaynak, tanı: Tanı): string {
     1,
     Bun.stringWidth(sekmeleriAç(metin.slice(sütun - 1, sütun - 1 + uzunluk))),
   );
-  return `${tanı.kod} (${tanı.seviye}): ${tanı.mesaj}\n\n  --> ${tanı.yol}:${satır}:${sütun}\n\n${önek}${sekmeleriAç(metin)}\n${" ".repeat(boşluk)}${"^".repeat(işaretSayısı)}`;
+  return `${tanı.kod} (${tanı.seviye}): ${tanı.mesaj}\n\n  --> ${görünenYol}:${satır}:${sütun}\n\n${önek}${sekmeleriAç(metin)}\n${" ".repeat(boşluk)}${"^".repeat(işaretSayısı)}`;
 }

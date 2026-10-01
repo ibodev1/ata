@@ -1,0 +1,4 @@
+"../ortak" kullan
+işlev adet(): sayı {
+    uzunluk([1, 2]) döndür
+}
