@@ -55,17 +55,21 @@ test("desteklenmeyen mimaride başka platforma düşmez", () => {
     expect(() => assetSeç(platform, "arm64")).toThrow("desteklenmiyor");
 });
 
-test("RC URL ve tag eşleşmesi güvenli biçimde doğrulanır", () => {
+test("RC URL ve final tag eşleşmesi güvenli biçimde doğrulanır", () => {
   expect(yayınTagi("0.1.0-rc.1")).toBe("v0.1.0-rc.1");
   expect(yayınUrl("ata-windows-x64.exe", "0.1.0-rc.1")).toBe(
     "https://github.com/ibodev1/ata/releases/download/v0.1.0-rc.1/ata-windows-x64.exe",
   );
-  expect(() => tagDoğrula("v0.1.0")).toThrow("uyuşmazlığı");
+  expect(yayınTagi()).toBe("v0.1.0");
+  expect(önSürümMü()).toBe(false);
+  expect(() => tagDoğrula("v0.1.0")).not.toThrow();
   expect(() => tagDoğrula("v0.1.0-rc.1")).toThrow("uyuşmazlığı");
   expect(() => tagDoğrula("v0.1.0-rc.2")).toThrow("uyuşmazlığı");
-  expect(() => tagDoğrula("v0.1.0-rc.3")).not.toThrow();
+  expect(() => tagDoğrula("v0.1.0-rc.3")).toThrow("uyuşmazlığı");
+  expect(() => tagDoğrula("v0.1.1")).toThrow("uyuşmazlığı");
+  expect(() => tagDoğrula("v1.0.0")).toThrow("uyuşmazlığı");
   expect(yayınUrl("ata-windows-x64.exe")).toBe(
-    "https://github.com/ibodev1/ata/releases/download/v0.1.0-rc.3/ata-windows-x64.exe",
+    "https://github.com/ibodev1/ata/releases/download/v0.1.0/ata-windows-x64.exe",
   );
   expect(() => yayınUrl("../ata", "0.1.0-rc.1")).toThrow();
   expect(() => yayınUrl("kur.sh", "0.1.0-rc.1", "owner/repo/yanlış")).toThrow();

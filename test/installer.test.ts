@@ -3,6 +3,7 @@ import { chmod, copyFile, mkdir, mkdtemp, readdir, realpath, rm, symlink } from 
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { version } from "../package.json";
 import { ENTEGRASYON_ZAMAN_ASIMI_MS } from "./entegrasyon.ts";
 
 const kök = fileURLToPath(new URL("../", import.meta.url));
@@ -112,7 +113,7 @@ test(
       // CLI dış sınırı fixture'dır; gerçek Linux/macOS binary'si çalıştırılmaz.
       await Bun.write(
         asset,
-        '#!/bin/sh\ncase "$1" in\nsürüm) echo "Ata Dil 0.1.0-rc.3";;\nyardım) echo "ata <komut>";;\ndenetle) echo "Denetim başarılı.";;\nçalıştır) printf "İbrahim: yönetici\\n"; case "$2" in *Unicode*) printf "Şğİı öçü ✓\\n";; esac;;\n*) exit 1;;\nesac\n',
+        `#!/bin/sh\ncase "$1" in\nsürüm) echo "Ata Dil ${version}";;\nyardım) echo "ata <komut>";;\ndenetle) echo "Denetim başarılı.";;\nçalıştır) printf "İbrahim: yönetici\\n"; case "$2" in *Unicode*) printf "Şğİı öçü ✓\\n";; esac;;\n*) exit 1;;\nesac\n`,
       );
       await chmod(asset, 0o755);
       const satırlar = await Promise.all(
@@ -132,7 +133,7 @@ test(
         sh,
         unixYolu(join(kök, "scripts/yayın-platform-smoke.sh")),
         "ata-linux-x64",
-        "0.1.0-rc.3",
+        version,
         unixYolu(geçici),
       ];
       const smoke = Bun.spawnSync(smokeKomutu, { env });
@@ -223,10 +224,8 @@ test.each(ağSenaryoları)(
       ).toBe(true);
       const urls = (await Bun.file(kayıt).text()).trim().split(/\r?\n/);
       expect(urls, sonuç.stderr.toString()).toEqual([
-        `https://github.com/ibodev1/ata/releases/download/v0.1.0-rc.3/${asset}`,
-        ...(!ilk
-          ? ["https://github.com/ibodev1/ata/releases/download/v0.1.0-rc.3/SHA256SUMS.txt"]
-          : []),
+        `https://github.com/ibodev1/ata/releases/download/v0.1.0/${asset}`,
+        ...(!ilk ? ["https://github.com/ibodev1/ata/releases/download/v0.1.0/SHA256SUMS.txt"] : []),
       ]);
     } finally {
       await rm(geçici, { recursive: true, force: true });

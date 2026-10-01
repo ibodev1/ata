@@ -1,5 +1,5 @@
 ﻿param(
-    [string]$Surum = '0.1.0-rc.3',
+    [string]$Surum = '0.1.0',
     [string]$YerelDosya,
     [string]$KurulumDizini,
     [bool]$PathGuncelle = $true

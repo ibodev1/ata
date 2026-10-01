@@ -42,6 +42,9 @@ test.each([
   expect(args).toContain("--verify-tag");
   expect(args.includes("--prerelease")).toBe(beklenen);
   expect(args.includes("--latest=false")).toBe(beklenen);
+  expect(args.includes("--latest")).toBe(!beklenen);
+  expect(args[args.indexOf("--title") + 1]).toBe(`Ata Dil ${sürüm}`);
+  expect(args[args.indexOf("--notes-file") + 1]).toBe(`docs/sürümler/${sürüm}.md`);
 });
 
 test("CI/release YAML kalite ve en düşük izin sözleşmesini korur", async () => {
