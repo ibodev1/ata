@@ -68,7 +68,7 @@ Ata, Türkçenin doğal düşünce sırasını sözdizimine yansıtmayı amaçla
 
 ## Mevcut aşama
 
-Aşama 10 (`0.1.0-dev.10`) tamamlandı: Gerçek CLI girişinden Bun standalone derleme, açık platform hedefleri, depo dışında kaynak/binary eşitliği doğrulaması ve ayrı `check:release` kalite kapısı mevcut. GitHub Actions Ubuntu üzerinde Bun 1.4.2 ve kilitli `bun ci` kurulumu kullanır. Dil ve tanı referansları `docs/` altındadır; yeni dil veya çalışma zamanı özelliği eklenmedi.
+Aşama 11 (`0.1.0-rc.1`) tamamlandı: Dört standalone release asseti, SHA-256, PowerShell/sh installer ve uninstaller pipeline’ı mevcut. `release:prepare` önceden hazırlanmış Bun runtime’larıyla ağ kullanmadan derler. `check:release`, kalite kapısı, release bütünlüğü, mevcut platform binary ve geçici installer smoke doğrular. `release.yml` manuel çalışmada yalnızca artifact üretir; sürümle eşleşen mevcut remote tag için GitHub prerelease yayınlayabilir. Gerçek tag/Release henüz oluşturulmadı; code signing/notarization yoktur. Yeni dil özelliği eklenmedi.
 
 Nominal seçenek türleri, `Tip::üye`, exhaustive postfix `eşleştir` bildirimi ve `diğer` kolu mevcut. Seçenekler yapı/isteğe bağlı/liste tipleriyle bütünleşir; bütün kolları dönen geçerli eşleştirme kesin dönüş sağlar. Payload ve desen bağlama henüz yoktur.
 

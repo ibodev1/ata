@@ -1,6 +1,6 @@
 # Ata Dil
 
-Ata, Türkçenin doğal düşünce sırasını sözdizimine yansıtmayı amaçlayan deneysel bir hobi programlama dilidir. Statik tip denetimi, Unicode adlar, işlevler, listeler, yapılar ve seçenekler içerir. Mevcut sürüm **0.1.0-dev.10**, Aşama 10'dur.
+Ata, Türkçenin doğal düşünce sırasını sözdizimine yansıtmayı amaçlayan deneysel bir hobi programlama dilidir. Statik tip denetimi, Unicode adlar, işlevler, listeler, yapılar ve seçenekler içerir. Mevcut sürüm **0.1.0-rc.1**, Aşama 11'dir.
 
 ```ata
 sabit ad = "Dünya"
@@ -17,10 +17,40 @@ bun run dev yardım
 bun run dev çalıştır örnekler/merhaba.ata
 bun test
 bun run check
+bun run release:runtime
 bun run check:release
 ```
 
-`check`: tip denetimi, Oxlint, Oxfmt kontrolü ve testler. `check:release` bunlara standalone derleme ve binary smoke ekler. Normal testler binary derlemez. `bun run format` biçimlendirir; `.ata` kaynakları biçimlendirme kapsamı dışındadır.
+`check`: tip denetimi, Oxlint, Oxfmt kontrolü ve testler. `check:release` bunlara dört hedefin release hazırlığını, mevcut platformun binary ve yerel installer smoke doğrulamasını ekler. Normal testler binary derlemez. `bun run format` biçimlendirir; `.ata` kaynakları biçimlendirme kapsamı dışındadır.
+
+## Kurulum ve yayın hazırlığı
+
+**0.1.0-rc.1 yayın adayı hazırlanıyor; ağ üzerinden kurulum komutları ilk GitHub Release ile aktif olacaktır.** Henüz yayımlanmış bir Release yoktur. Gelecekte indirilen `kur.ps1` PowerShell'de, `kur.sh` Unix/macOS'ta çalıştırılır; internetten doğrudan çalıştırma komutu şimdilik verilmez.
+
+Installer binary ve `SHA256SUMS.txt` indirir; SHA-256 eşleşmezse kurmaz. Binary’ler henüz kod imzalı değildir; checksum code signing’in yerine geçmez. SmartScreen, Gatekeeper, quarantine ve execution policy ayarları değiştirilmez.
+
+Windows kurulum dizini `%LOCALAPPDATA%\Ata\bin`dir. Yalnızca User PATH’e eksikse eklenir; System PATH’e dokunulmaz. Unix/macOS dizini `$HOME/.local/bin`dir; PATH eksikse bilgi verilir, shell config dosyaları düzenlenmez. Windows arm64 ve Linux arm64 açık hatayla reddedilir. Uninstaller yalnızca kayıtlı Ata binary’sini ve kendi checksum kaydını kaldırır, diğer dosyaları/dizinleri korur. Kurulu dosya değiştirilmişse üzerine yazma ve silme reddedilir.
+
+```sh
+bun run release:runtime
+bun run release:prepare
+bun run release:verify
+bun run test:installer
+```
+
+`release:runtime`, eksik resmi Bun target runtime’larını bir kez indirerek `.bun-cache/` altında hazırlar. `release:prepare` **ağ kullanmaz**; önbellek eksikse çıktıları değiştirmeden durur. Sürüm ve asset isimleri sabittir; binary’lerin byte-for-byte tekrar üretilebilirliği garanti edilmez.
+
+`dist/release/`: `ata-windows-x64.exe`, `ata-linux-x64`, `ata-darwin-x64`, `ata-darwin-arm64`, `SHA256SUMS.txt`, `kur.ps1`, `kur.sh`, `kaldir.ps1`, `kaldir.sh`. SHA-256 dosyası binary ve installer’ların tamamını alfabetik sırada kapsar. Release installer varsayılan sürümleri release hazırlanırken tek kaynak `package.json`dan güncellenir. `ATA_REPO=owner/repo` ağ kurulumu için repository override sağlar.
+
+Yerel doğrulama örneği (geçici dizin kullanın):
+
+```powershell
+.\scripts\kur.ps1 -YerelDosya .\dist\release\ata-windows-x64.exe -KurulumDizini "$env:TEMP\ata-deneme" -PathGuncelle:$false
+& "$env:TEMP\ata-deneme\ata.exe" sürüm
+.\scripts\kaldir.ps1 -KurulumDizini "$env:TEMP\ata-deneme" -PathGuncelle:$false
+```
+
+Unix eşdeğeri `sh scripts/kur.sh --local-file dist/release/ata-linux-x64 --install-dir /tmp/ata-deneme` ve `sh scripts/kaldir.sh --install-dir /tmp/ata-deneme`dir. macOS'ta doğru Darwin assetini kullanın. Yerel dosya modunda da aynı dizindeki checksum zorunludur. Sürüm seçimi PowerShell’de `-Surum`, sh’de `--version` ile yapılabilir.
 
 ## Standalone derleme
 
@@ -62,5 +92,8 @@ Binary smoke binary'yi depo dışındaki geçici dizine kopyalar; PATH boşken k
 - [Tanılar](docs/tanılar.md): kaynakta kullanılan tanı kodlarının tamamı.
 - [Proje bağlamı](CONTEXT.md): terimler ve mevcut mimari.
 - [Örnekler](örnekler/): çalıştırılabilir Ata programları.
+- [RC yayın notu](docs/sürümler/0.1.0-rc.1.md).
 
 GitHub Actions `push` ve `pull_request` için Ubuntu üzerinde Bun 1.4.2, `bun ci`, `check`, build ve binary smoke çalıştırır. Release veya yayınlama yapmaz.
+
+Ayrı `release.yml`, `workflow_dispatch` ile yalnızca Actions artifact üretir. `v*` tag push’unda tag/paket sürümünü doğrular; kalite, release hazırlığı ve Linux installer smoke sonrası tag job’ı `gh release create --verify-tag --prerelease --latest=false` kullanabilir. Varsayılan izin `contents: read`, yalnızca publish job’ı `contents: write` alır; built-in token kullanılır. Resmi action’lar doğrulanmış commit SHA’larına pinlidir. Henüz push, tag veya gerçek Release yapılmadı.

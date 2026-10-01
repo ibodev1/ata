@@ -2,22 +2,38 @@ import { lstat, mkdir, unlink } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 
 export const projeKökü = resolve(import.meta.dir, "..");
-const hedefler = [
+export const hedefler = [
   {
     ad: "windows-x64",
     platform: "win32",
     mimari: "x64",
     hedef: "bun-windows-x64",
     dosya: "ata.exe",
+    asset: "ata-windows-x64.exe",
   },
-  { ad: "linux-x64", platform: "linux", mimari: "x64", hedef: "bun-linux-x64", dosya: "ata" },
-  { ad: "darwin-x64", platform: "darwin", mimari: "x64", hedef: "bun-darwin-x64", dosya: "ata" },
+  {
+    ad: "linux-x64",
+    platform: "linux",
+    mimari: "x64",
+    hedef: "bun-linux-x64",
+    dosya: "ata",
+    asset: "ata-linux-x64",
+  },
+  {
+    ad: "darwin-x64",
+    platform: "darwin",
+    mimari: "x64",
+    hedef: "bun-darwin-x64",
+    dosya: "ata",
+    asset: "ata-darwin-x64",
+  },
   {
     ad: "darwin-arm64",
     platform: "darwin",
     mimari: "arm64",
     hedef: "bun-darwin-arm64",
     dosya: "ata",
+    asset: "ata-darwin-arm64",
   },
 ] as const;
 
@@ -48,10 +64,10 @@ async function dizinHazırla(yol: string) {
     throw new Error(`Çıktı dizini gerçek bir dizin olmalı: ${yol}`);
 }
 
-async function derle() {
-  const hedef = derlemeHedefi(Bun.argv.slice(2));
+export async function derle(args: readonly string[], yayın = false, runtimeYolu?: string) {
+  const hedef = derlemeHedefi(args);
   const dist = resolve(projeKökü, "dist");
-  const çıktı = resolve(dist, hedef.çıktı);
+  const çıktı = resolve(dist, yayın ? `release/${hedef.asset}` : hedef.çıktı);
   // Yalnızca tablodan seçilmiş hedefin dosyası silinir; recursive silme yoktur.
   await dizinHazırla(dist);
   if (dirname(çıktı) !== dist) await dizinHazırla(dirname(çıktı));
@@ -70,6 +86,7 @@ async function derle() {
       "build",
       "--compile",
       `--target=${hedef.hedef}`,
+      ...(runtimeYolu ? ["--compile-executable-path", runtimeYolu] : []),
       "--no-compile-autoload-dotenv",
       "--no-compile-autoload-bunfig",
       "--no-compile-autoload-tsconfig",
@@ -87,7 +104,7 @@ async function derle() {
 
 if (import.meta.main) {
   try {
-    await derle();
+    await derle(Bun.argv.slice(2));
   } catch (hata) {
     console.error(hata instanceof Error ? hata.message : "Derleme başarısız.");
     process.exitCode = 1;

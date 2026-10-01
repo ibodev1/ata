@@ -1,6 +1,6 @@
 {
   "name": "ata",
-  "version": "0.1.0-dev.10",
+  "version": "0.1.0-rc.1",
   "private": true,
   "type": "module",
   "module": "src/index.ts",
@@ -15,7 +15,11 @@
     "check": "bun run typecheck && bun run lint && bun run format:check && bun test",
     "build": "bun run scripts/derle.ts",
     "test:binary": "bun run scripts/binary-smoke.ts",
-    "check:release": "bun run check && bun run build && bun run test:binary"
+    "check:release": "bun run check && bun run release:prepare && bun run scripts/binary-smoke.ts --release && bun run test:installer",
+    "release:runtime": "bun run scripts/runtime-hazırla.ts",
+    "release:prepare": "bun run scripts/yayın-hazırla.ts",
+    "release:verify": "bun run scripts/yayın-hazırla.ts --verify",
+    "test:installer": "bun run scripts/installer-smoke.ts"
   },
   "dependencies": {
     "chevrotain": "^13.2.0"

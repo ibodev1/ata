@@ -19,7 +19,15 @@ async function smoke() {
   const geçici = await mkdtemp(join(tmpdir(), "ata-binary-"));
   try {
     const binary = join(geçici, derlemeHedefi([]).dosya);
-    await copyFile(resolve(projeKökü, "dist", derlemeHedefi([]).çıktı), binary);
+    const hedef = derlemeHedefi([]);
+    await copyFile(
+      resolve(
+        projeKökü,
+        "dist",
+        Bun.argv.includes("--release") ? `release/${hedef.asset}` : hedef.çıktı,
+      ),
+      binary,
+    );
     await chmod(binary, 0o755);
     await mkdir(join(geçici, "geçici testler"));
     const özel = join("geçici testler", "öğrenci 🌍 programı.ata");
