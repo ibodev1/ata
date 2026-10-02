@@ -54,7 +54,7 @@ ata çalıştır merhaba.ata
 
 ## Modüller
 
-Yerel modüller 0.2 geliştirme sürümünde kullanılabilir; 0.2 henüz yayımlanmadı. Yukarıdaki `latest` kurulumu yayımlanmış kararlı sürümü indirir.
+Yerel modüller 0.2 serisinde kullanılabilir; 0.2 henüz kararlı olarak yayımlanmadı. Yukarıdaki `latest` kurulumu yayımlanmış kararlı sürümü indirir.
 
 Aynı dizinde iki dosya oluşturun. `matematik.ata`:
 
