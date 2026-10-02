@@ -1,6 +1,6 @@
 # Ata Dil referansı
 
-Bu belge mevcut 0.2 dilini tanımlar. Dil deneysel ve statik tip denetimli bir yorumlayıcıdır; 0.2 henüz kararlı olarak yayımlanmadı.
+Bu belge mevcut 0.2 dilini tanımlar. Dil deneysel ve statik tip denetimli bir yorumlayıcıdır.
 
 ## Kaynak ve değerler
 
