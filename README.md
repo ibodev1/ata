@@ -52,6 +52,30 @@ sabit ad = "Dünya"
 ata çalıştır merhaba.ata
 ```
 
+## Modüller
+
+Yerel modüller 0.2 geliştirme sürümünde kullanılabilir; 0.2 henüz yayımlanmadı. Yukarıdaki `latest` kurulumu yayımlanmış kararlı sürümü indirir.
+
+Aynı dizinde iki dosya oluşturun. `matematik.ata`:
+
+```ata
+işlev topla(a: sayı, b: sayı): sayı {
+    a + b döndür
+}
+```
+
+`ana.ata`:
+
+```ata
+"matematik" kullan
+
+matematik::topla(10, 20) yazdır
+```
+
+Geliştirme sürümüyle `ata çalıştır ana.ata` çıktısı `30` olur. Depodan denemek için `bun run src/cli/cli.ts çalıştır ana.ata` kullanabilirsiniz. Kullanım yoluna `.ata` eklenmez; yol, kullanan dosyaya göre çözülür.
+
+Seçici kullanım `"matematik" içinden topla kullan`, takma ad ise `"matematik" mat olarak kullan` biçimindedir. Ayrıntılar [dil referansında](docs/dil-referansı.md#modüller); yapı tipi de kullanan çalıştırılabilir örnek [örnekler/modüller](örnekler/modüller/ana.ata) altında bulunur.
+
 ## Komutlar
 
 ```text
@@ -60,6 +84,8 @@ ata denetle <dosya>
 ata sürüm
 ata yardım
 ```
+
+`denetle`, giriş dosyasından erişilen bütün modülleri doğrular; kullanıcı kodunu çalıştırmaz. `çalıştır`, aynı doğrulamadan sonra bağımlılıkları ve giriş dosyasını çalıştırır.
 
 ## Desteklenen platformlar
 
@@ -82,6 +108,7 @@ bun run build
 - [Dil referansı](docs/dil-referansı.md)
 - [Tanılar](docs/tanılar.md)
 - [0.1.0 yayın notu](docs/sürümler/0.1.0.md)
+- [0.2.0 yayın notu taslağı](docs/sürümler/0.2.0.md)
 
 ## Lisans
 

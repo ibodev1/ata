@@ -136,9 +136,8 @@ test("yeni keyword'ler ad olamaz; sayı istisnası yalnız eski ad bağlamların
   ).toEqual([]);
 });
 
-test("tekrar kullanım parse edilir; canonical duplicate kararı sonraki aşamaya aittir", () => {
-  // Aşama 19/20: canonical modül başına en fazla bir namespace binding;
-  // namespace + seçici kullanım izinli. Burada path/name semantiği yoktur.
+test("tekrar kullanım parse edilir; kanonik tekrarları modül isim çözümlemesi denetler", () => {
+  // Ön yüz bildirimleri saklar; yol kimliği ve bağlama tekrarları burada denetlenmez.
   const sonuç = ayrıştır(
     kaynakOluştur(
       "kullan.ata",

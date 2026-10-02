@@ -1,6 +1,6 @@
 # Tanı kodları
 
-Tanılar kaynak yolu, konum, kod ve Türkçe açıklama taşır. `ATA1xxx` sözcük çözümleme, `ATA2xxx` ayrıştırma, `ATA3xxx` isim/tip adı çözümleme, `ATA4xxx` tip/anlamsal denetim, `ATA5xxx` çalışma zamanı ailesidir. `ATA6xxx` modül kullanımı ailesidir; bildirim konumu, yerel yollar, yükleme, döngüler, export erişimi ve import bağlamaları doğrulanır. `denetle` modülleri dependency-first analiz eder; namespace/seçici değer ve tip bağlamalarında nominal kimliği korur; nitelikli tipler, yapı oluşturma ve seçenek eşleştirmesi statik olarak doğrulanır. `çalıştır` bütün graph statik olarak başarılıysa modülleri dependency-first sırayla bir kez yürütür; çalışma zamanı tanıları hatanın kaynak modülünü korur. CLI kullanım, dosya uzantısı ve giriş dosyasının/UTF-8'in okuma hataları da kod taşımayan Türkçe mesajlardır. Başarı çıkışı 0, Ata/CLI hatası 1'dir.
+Tanılar kaynak yolu, konum, kod ve Türkçe açıklama taşır. `ATA1xxx` sözcük çözümleme, `ATA2xxx` ayrıştırma, `ATA3xxx` isim/tip adı çözümleme, `ATA4xxx` tip/anlamsal denetim, `ATA5xxx` çalışma zamanı ailesidir. `ATA6xxx` modül kullanımı ailesidir; bildirim konumu, yerel yollar, yükleme, döngüler, dışarı açık adlara erişim ve kullanım bağlamaları doğrulanır. `denetle` erişilen modülleri bağımlılıklar önce olacak şekilde analiz eder; ad alanı/seçici değer ve tip bağlamalarında nominal kimliği korur. `çalıştır` bütün bağımlılıklar statik olarak başarılıysa modülleri bağımlılıklar önce olacak şekilde bir kez yürütür. CLI kullanım, dosya uzantısı ve giriş dosyasının/UTF-8'in okuma hataları da kod taşımayan Türkçe mesajlardır. Başarı çıkışı 0, Ata/CLI hatası 1'dir.
 
 Tablo kaynakta kullanılan bütün kodları kapsar. Bir kod aynı denetim kuralının farklı bağlamlarında kullanılabilir. Çalışma zamanı ortam/durum tanıları savunma denetimlerini de kapsar; normal statik denetimden geçmiş kaynakta her birinin oluşması beklenmez.
 
@@ -71,3 +71,17 @@ Tablo kaynakta kullanılan bütün kodları kapsar. Bir kod aynı denetim kural�
 | ATA6008 | Modül okuma / UTF-8 / kanonikleştirme hatası           | Modül      |
 
 `denetle` yorumlayıcıyı çalıştırmaz. Örneğin `1 / 0 yazdır` denetimden geçer; `çalıştır` ATA5001 üretir. Çalışma zamanı hatası öncesindeki program çıktıları korunur.
+
+## Modül tanılarını giderme
+
+- `ATA6001`: Kullanan dosyanın gerçek dizinine göre hedef `.ata` dosyasının varlığını kontrol edin. Bozuk bağlantı da bu tanıyı üretebilir.
+- `ATA6002`: Uzantısız göreli yol ve `/` ayırıcı kullanın; hedef normal dosya olmalıdır. Mutlak yol, URL/scheme, backslash, boş segment ve açık uzantı geçersizdir.
+- `ATA6003`: Döngüyü kapatan kullanımı kaldırın. Mesajdaki zincir kendini kullanmayı da gösterir.
+- `ATA6004`: Adın hedef dosyanın kendi dışarı açık bildirimi olduğunu ve değer/tip bağlamına uygun kullanıldığını kontrol edin. `değişken`, yerleşikler ve yeniden dışa aktarılmayan içe alınmış adlar dışarı açık değildir.
+- `ATA6005`: Varsayılan ad geçersizse açık takma ad veya seçici kullanım kullanın; örneğin `"foo-bar" fb olarak kullan`.
+- `ATA6006`: Kullanım bildirimlerini yalnızca dosyanın başındaki üst seviye kullanım bölümüne taşıyın; yorum ve boş satırlar bu bölümü sonlandırmaz.
+- `ATA6007`: Aynı modül için ikinci ad alanını veya aynı modülün aynı dışarı açık adının ikinci seçici kullanımını kaldırın. Ad alanı + seçici kullanım geçerlidir. Farklı bağların normal isim çakışmaları `ATA3002`/`ATA3005` ile tanılanır.
+- `ATA6008`: Dosya okuma izinlerini ve UTF-8 kodlamasını kontrol edin; dosya yolunun kanonikleştirilmesi sırasında oluşan erişim/I/O hataları da bu koddadır.
+- `ATA4035`: Ad alanını normal değer gibi kullanmayın; `matematik yazdır` yerine dışarı açık bir üyeye `matematik::üye` biçiminde erişin.
+
+Modülün ayrıştırma, isim/tip ve çalışma zamanı tanıları kendi kaynak dosyasında gösterilir. Eksik, okunamayan veya geçersiz hedef ise kullanan dosyanın yol literalinde tanılanır. `ATA6004` istenen ad/son segmenti, `ATA6005` varsayılan adın üretildiği yol literalini, `ATA6007` ikinci bağlamayı işaretler. İçe alınan işlev gövdesindeki hata işlevin dosyasında, argüman değerlendirme hatası çağıran dosyada kalır.

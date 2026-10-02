@@ -70,6 +70,9 @@ async function smoke() {
       0,
       "İbrahim: yönetici\n",
     );
+    const modülÖrneği = resolve(projeKökü, "örnekler/modüller/ana.ata");
+    karşılaştır(["denetle", modülÖrneği], 0, "Denetim başarılı.\n");
+    karşılaştır(["çalıştır", modülÖrneği], 0, "İbrahim: 30\n");
     for (const yol of [özel, resolve(geçici, özel)]) {
       karşılaştır(["denetle", yol], 0, "Denetim başarılı.\n");
       karşılaştır(["çalıştır", yol], 0, "Türkçe: İı Şş Ğğ 🌍\n");

@@ -1,0 +1,10 @@
+"matematik" kullan
+"modeller" içinden Kişi kullan
+
+sabit kişi: Kişi = Kişi {
+    ad: "İbrahim",
+    puan: matematik::topla(10, 20)
+}
+
+// Çıktı: İbrahim: 30
+"{kişi.ad}: {kişi.puan}" yazdır

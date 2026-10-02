@@ -1,0 +1,4 @@
+yapı Kişi {
+    ad: yazı
+    puan: sayı
+}
